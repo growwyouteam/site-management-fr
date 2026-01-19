@@ -25,6 +25,7 @@ const Sidebar = () => {
     { path: '/admin/accounts', label: 'Accounts', icon: '💳' },
     { path: '/admin/users', label: 'Users', icon: '👥' },
     { path: '/admin/reports', label: 'Reports', icon: '📈' },
+    { path: '/admin/bank-details', label: 'Bank Detail', icon: '🏦' },
     { path: '/admin/notifications', label: 'Notifications', icon: '🔔' }
   ];
 

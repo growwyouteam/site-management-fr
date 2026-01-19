@@ -109,15 +109,35 @@ const Payment = () => {
               <select value={formData.labourId} onChange={(e) => {
                 const labour = labours.find(l => l._id === e.target.value);
                 setFormData({ ...formData, labourId: e.target.value, amount: labour?.pendingPayout || 0 });
+                // Store selected labour in state for calculations (implied by closure or new state)
               }} required disabled={isSubmitting} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100">
                 <option value="">Select Labour</option>
                 {labours.map(l => (
                   <option key={l._id} value={l._id}>{l.name} - Pending: ₹{l.pendingPayout || 0}</option>
                 ))}
               </select>
+
+              {/* Show Current Pending & Remaining Balance */}
+              {formData.labourId && (
+                <div className="mt-3 grid grid-cols-2 gap-4 bg-blue-50 p-3 rounded-lg border border-blue-100">
+                  <div>
+                    <span className="text-xs text-gray-500 font-semibold uppercase">Current Pending</span>
+                    <div className="text-lg font-bold text-blue-800">
+                      ₹{(labours.find(l => l._id === formData.labourId)?.pendingPayout || 0).toLocaleString()}
+                    </div>
+                  </div>
+                  <div>
+                    <span className="text-xs text-gray-500 font-semibold uppercase">Remaining Balance</span>
+                    <div className={`text-lg font-bold ${(labours.find(l => l._id === formData.labourId)?.pendingPayout || 0) - (parseFloat(formData.amount) || 0) < 0 ? 'text-red-600' : 'text-green-600'}`}>
+                      ₹{Math.max(0, (labours.find(l => l._id === formData.labourId)?.pendingPayout || 0) - (parseFloat(formData.amount) || 0)).toLocaleString()}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
+
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Amount (₹)</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Amount to Pay (₹)</label>
               <input type="number" value={formData.amount} onChange={(e) => setFormData({ ...formData, amount: e.target.value })} required disabled={isSubmitting} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100" />
             </div>
             <div>
@@ -136,10 +156,11 @@ const Payment = () => {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Final Amount</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Net Payable Amount</label>
               <div className="w-full px-4 py-2.5 bg-green-50 border border-green-300 rounded-lg text-green-700 font-bold">
-                ₹{((parseFloat(formData.amount) || 0) - (parseFloat(formData.deduction) || 0) - (parseFloat(formData.advance) || 0)).toLocaleString()}
+                ₹{((parseFloat(formData.amount) || 0) - (parseFloat(formData.deduction) || 0) + (parseFloat(formData.advance) || 0)).toLocaleString()}
               </div>
+              <p className="text-xs text-gray-500 mt-1">Amount - Deduction + Advance</p>
             </div>
             <div className="md:col-span-2">
               <label className="block text-sm font-medium text-gray-700 mb-2">Remarks</label>

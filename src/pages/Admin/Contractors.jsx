@@ -58,36 +58,40 @@ const Contractors = () => {
                 console.log('✅ Contractors loaded:', contractorsData.length);
                 setContractors(contractorsData);
 
+                // Fetch machines once for all contractors (optimization)
+                const machinesRes = await api.get('/admin/machines');
+                const allMachines = machinesRes.data.success ? machinesRes.data.data : [];
+
                 // Calculate stats for each contractor
                 const statsPromises = contractorsData.map(async (contractor) => {
-                    const [paymentsRes, machinesRes] = await Promise.all([
-                        api.get(`/admin/contractors/${contractor._id}/payments`),
-                        api.get('/admin/machines')
-                    ]);
-
+                    // Fetch payments for this contractor
+                    const paymentsRes = await api.get(`/admin/contractors/${contractor._id}/payments`);
                     const payments = paymentsRes.data.success ? paymentsRes.data.data : [];
-                    const machines = machinesRes.data.success ? machinesRes.data.data : [];
+
+                    // Filter machines for this contractor from the already-fetched list
+                    const rentedMachines = allMachines.filter(m => m.assignedToContractor === contractor._id && m.assignedAsRental);
 
                     const totalPaid = payments.reduce((sum, p) => sum + (p.amount || 0), 0);
-                    const rentedMachines = machines.filter(m => m.assignedToContractor === contractor._id && m.assignedAsRental);
                     const totalRentCost = rentedMachines.reduce((sum, m) => sum + (m.assignedRentalPerDay || 0), 0);
                     const rentPayments = payments.filter(p => p.rentDeducted).reduce((sum, p) => sum + (p.machineRent || 0), 0);
 
                     // New Calculation Logic
                     const totalPayable = (contractor.distanceValue || 0) * (contractor.expensePerUnit || 0);
                     const pendingAmount = Math.max(0, totalPayable - totalPaid);
+                    const advancePayment = totalPaid > totalPayable ? (totalPaid - totalPayable) : 0;
 
                     console.log(`🔍 Contractor ${contractor.name}:`);
                     console.log(`  - Total Payable: ₹${totalPayable}`);
                     console.log(`  - Total Paid: ₹${totalPaid}`);
                     console.log(`  - Pending Amount: ₹${pendingAmount}`);
+                    console.log(`  - Advance Payment: ₹${advancePayment}`);
 
                     return {
                         contractorId: contractor._id,
                         totalPaid,
                         totalPayable,
-                        pendingAmount: contractor.pendingAmount || 0,
-                        advancePayment: contractor.advancePayment || 0,
+                        pendingAmount,
+                        advancePayment,
                         rentedMachinesCount: rentedMachines.length
                     };
                 });

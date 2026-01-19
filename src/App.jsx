@@ -29,6 +29,7 @@ const Accounts = lazy(() => import('./pages/Admin/Accounts'));
 const Users = lazy(() => import('./pages/Admin/Users'));
 const Reports = lazy(() => import('./pages/Admin/Reports'));
 const Payments = lazy(() => import('./pages/Admin/Payments'));
+const BankDetails = lazy(() => import('./pages/Admin/BankDetails'));
 const Notifications = lazy(() => import('./pages/Admin/Notifications'));
 
 // Site Manager Pages
@@ -148,6 +149,7 @@ const AppRoutes = () => {
               <Route path="/admin/accounts" element={<Accounts />} />
               <Route path="/admin/users" element={<Users />} />
               <Route path="/admin/payments" element={<Payments />} />
+              <Route path="/admin/bank-details" element={<BankDetails />} />
               <Route path="/admin/reports" element={<Reports />} />
               <Route path="/admin/notifications" element={<Notifications />} />
               <Route path="*" element={<Navigate to="/admin" replace />} />
