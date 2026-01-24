@@ -2,9 +2,11 @@ import { useState, useEffect, useMemo } from 'react';
 import api from '../../services/api';
 import { showToast } from '../../components/Toast';
 import { useAuth } from '../../context/AuthContext';
+import { useSiteManager } from '../../context/SiteManagerContext';
 
 const StockIn = () => {
   const { user } = useAuth();
+  const { selectedProject } = useSiteManager();
   const units = ['kg', 'ltr', 'bags', 'pcs', 'meter', 'box', 'ton'];
   const [vendors, setVendors] = useState([]);
   const [projects, setProjects] = useState([]);
@@ -25,7 +27,8 @@ const StockIn = () => {
 
   useEffect(() => {
     fetchData();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedProject]);
 
   const fetchData = async () => {
     setIsLoading(true);
@@ -61,9 +64,17 @@ const StockIn = () => {
       }
 
       if (projectsRes.data.success) {
-        setProjects(projectsRes.data.data);
-        if (projectsRes.data.data.length > 0) {
-          setFormData(prev => ({ ...prev, projectId: projectsRes.data.data[0]._id || projectsRes.data.data[0].id }));
+        let filteredProjects = projectsRes.data.data;
+
+        // Filter to show only selected project if one is set
+        if (selectedProject) {
+          filteredProjects = projectsRes.data.data.filter(p => p._id === selectedProject._id);
+          console.log('🎯 Filtering projects by selected project:', selectedProject.name);
+        }
+
+        setProjects(filteredProjects);
+        if (filteredProjects.length > 0) {
+          setFormData(prev => ({ ...prev, projectId: filteredProjects[0]._id || filteredProjects[0].id }));
         }
       } else {
         console.warn('⚠️ Projects API failed:', projectsRes.data.error);
@@ -71,10 +82,20 @@ const StockIn = () => {
       }
 
       if (stocksRes.data.success) {
+        let filteredStocks = stocksRes.data.data;
+
+        // Filter by selected project
+        if (selectedProject) {
+          filteredStocks = stocksRes.data.data.filter(s => {
+            const sProjectId = typeof s.projectId === 'object' ? s.projectId._id : s.projectId;
+            return sProjectId === selectedProject._id;
+          });
+          console.log(`🎯 Filtered stocks: ${filteredStocks.length} records for ${selectedProject.name}`);
+        }
+
         // Sort stocks by date descending (newest first)
-        const sortedStocks = stocksRes.data.data.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        const sortedStocks = filteredStocks.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
         setStocks(sortedStocks);
-        console.log(`✅ Loaded ${stocksRes.data.data.length} stocks`);
       } else {
         console.warn('⚠️ Stocks API failed:', stocksRes.data.error);
         setStocks([]);
@@ -444,7 +465,7 @@ const StockIn = () => {
         </div>
         <div className="flex gap-2">
           <button
-            onClick={applyFilters}
+            onClick={fetchData}
             className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
           >
             Apply Filter

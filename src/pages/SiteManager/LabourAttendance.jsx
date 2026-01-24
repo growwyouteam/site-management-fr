@@ -2,9 +2,11 @@ import { useState, useEffect } from 'react';
 import api from '../../services/api';
 import { showToast } from '../../components/Toast';
 import { useAuth } from '../../context/AuthContext';
+import { useSiteManager } from '../../context/SiteManagerContext';
 
 const LabourAttendance = () => {
   const { user } = useAuth();
+  const { selectedProject } = useSiteManager();
   const baseUrl = user?.role === 'admin' ? '/admin' : '/site';
   const [labours, setLabours] = useState([]);
   const [projects, setProjects] = useState([]);
@@ -14,14 +16,17 @@ const LabourAttendance = () => {
 
   useEffect(() => {
     fetchData();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedProject]);
 
   const fetchData = async () => {
     try {
+      const labourQuery = selectedProject ? `?projectId=${selectedProject._id}` : '';
+
       const [laboursRes, projectsRes, attendanceRes] = await Promise.all([
-        api.get(`${baseUrl}/labours`),
+        api.get(`${baseUrl}/labours${labourQuery}`),
         api.get(`${baseUrl}/projects`),
-        api.get(`${baseUrl}/labour-attendance`)
+        api.get(`${baseUrl}/labour-attendance`) // We'll filter this client-side for now as endpoint update might be needed
       ]);
 
       let labs = [];
@@ -36,8 +41,17 @@ const LabourAttendance = () => {
       }
 
       if (attendanceRes.data.success) {
-        // Sort by date/time desc
-        const sorted = attendanceRes.data.data.sort((a, b) => new Date(b.createdAt || b.date) - new Date(a.createdAt || a.date));
+        // Sort by date/time desc and filter by project
+        let filteredAttendance = attendanceRes.data.data;
+
+        if (selectedProject) {
+          filteredAttendance = filteredAttendance.filter(a => {
+            const attProjectId = typeof a.projectId === 'object' ? a.projectId._id : a.projectId;
+            return attProjectId === selectedProject._id;
+          });
+        }
+
+        const sorted = filteredAttendance.sort((a, b) => new Date(b.createdAt || b.date) - new Date(a.createdAt || a.date));
         attendanceData = sorted;
         setAttendance(sorted);
       }

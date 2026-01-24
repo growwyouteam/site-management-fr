@@ -88,14 +88,15 @@ const CapitalTypeSelectionModal = ({ onClose, onSelect }) => {
 };
 
 
-const AddTransactionModal = ({ type, onClose, onSuccess }) => {
+const AddTransactionModal = ({ type, onClose, onSuccess, banks }) => {
   const [formData, setFormData] = useState({
     amount: '',
     description: '',
     paymentMode: 'cash', // default
     date: new Date().toISOString().split('T')[0],
     category: type === 'capital' ? 'capital' : type === 'expense' ? 'expense' : 'other',
-    type: type === 'capital' ? 'credit' : 'debit' // default based on card
+    type: type === 'capital' ? 'credit' : 'debit', // default based on card
+    bankId: ''
   });
   const [loading, setLoading] = useState(false);
 
@@ -119,11 +120,11 @@ const AddTransactionModal = ({ type, onClose, onSuccess }) => {
       const endpoint = type === 'capital' ? '/admin/accounts/capital' : '/admin/accounts/transaction';
       // Actually addTransaction handles all, addCapital is just an alias or specific route.
       // Let's use the generic transaction endpoint for flexibility if backend supports it.
-      // adminController has addTransaction. 
+      // adminController has addTransaction.
       // admin/routes has router.post('/accounts/transaction', addTransaction);
       // router.post('/accounts/capital', addCapital);
 
-      const res = await optimizedApi.post('/admin/accounts/transaction', {
+      const res = await optimizedApi.post(endpoint, {
         ...formData,
         category: formData.category, // Allow user override?
         type: formData.type
@@ -139,6 +140,8 @@ const AddTransactionModal = ({ type, onClose, onSuccess }) => {
       setLoading(false);
     }
   };
+
+  const showBankDropdown = ['bank', 'online', 'check', 'upi'].includes(formData.paymentMode);
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -191,6 +194,25 @@ const AddTransactionModal = ({ type, onClose, onSuccess }) => {
             </div>
           </div>
 
+          {showBankDropdown && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Select Bank</label>
+              <select
+                required
+                value={formData.bankId}
+                onChange={e => setFormData({ ...formData, bankId: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">-- Select Bank Account --</option>
+                {banks.map(bank => (
+                  <option key={bank._id} value={bank._id}>
+                    {bank.bankName} - {bank.holderName}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
             <input
@@ -235,13 +257,14 @@ const AddTransactionModal = ({ type, onClose, onSuccess }) => {
   );
 };
 
-const AllocateFundsModal = ({ onClose, onSuccess }) => {
+const AllocateFundsModal = ({ onClose, onSuccess, banks }) => {
   const [managers, setManagers] = useState([]);
   const [formData, setFormData] = useState({
     managerId: '',
     amount: '',
     description: '',
-    paymentMode: 'bank'
+    paymentMode: 'bank',
+    bankId: ''
   });
   const [loading, setLoading] = useState(false);
 
@@ -275,6 +298,8 @@ const AllocateFundsModal = ({ onClose, onSuccess }) => {
       setLoading(false);
     }
   };
+
+  const showBankDropdown = ['bank', 'online', 'check', 'upi'].includes(formData.paymentMode);
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -329,6 +354,25 @@ const AllocateFundsModal = ({ onClose, onSuccess }) => {
             </select>
           </div>
 
+          {showBankDropdown && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Select Source Bank</label>
+              <select
+                required
+                value={formData.bankId}
+                onChange={e => setFormData({ ...formData, bankId: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">-- Select Bank Account --</option>
+                {banks.map(bank => (
+                  <option key={bank._id} value={bank._id}>
+                    {bank.bankName} - {bank.holderName}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
             <textarea
@@ -364,7 +408,7 @@ const AllocateFundsModal = ({ onClose, onSuccess }) => {
 };
 
 // Machine/Equipment Capital Form (Inline)
-const MachineEquipmentCapitalForm = ({ onCancel, onSuccess }) => {
+const MachineEquipmentCapitalForm = ({ onCancel, onSuccess, banks }) => {
   const [machineType, setMachineType] = useState('');
   const [machines, setMachines] = useState([]);
   const [formData, setFormData] = useState({
@@ -372,7 +416,8 @@ const MachineEquipmentCapitalForm = ({ onCancel, onSuccess }) => {
     amount: '',
     description: '',
     paymentMode: 'bank',
-    date: new Date().toISOString().split('T')[0]
+    date: new Date().toISOString().split('T')[0],
+    bankId: ''
   });
   const [loading, setLoading] = useState(false);
 
@@ -422,6 +467,8 @@ const MachineEquipmentCapitalForm = ({ onCancel, onSuccess }) => {
       setLoading(false);
     }
   };
+
+  const showBankDropdown = ['bank', 'online', 'check', 'upi'].includes(formData.paymentMode);
 
   return (
     <div className="bg-white p-6 rounded-xl shadow-lg border-2 border-orange-200 animate-fade-in-down">
@@ -512,6 +559,25 @@ const MachineEquipmentCapitalForm = ({ onCancel, onSuccess }) => {
           </div>
         </div>
 
+        {showBankDropdown && (
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">Select Bank</label>
+            <select
+              required
+              value={formData.bankId}
+              onChange={e => setFormData({ ...formData, bankId: e.target.value })}
+              className="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+            >
+              <option value="">-- Select Bank Account --</option>
+              {banks.map(bank => (
+                <option key={bank._id} value={bank._id}>
+                  {bank.bankName} - {bank.holderName}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
         <div>
           <label className="block text-sm font-semibold text-gray-700 mb-2">Date</label>
           <input
@@ -558,6 +624,7 @@ const MachineEquipmentCapitalForm = ({ onCancel, onSuccess }) => {
 
 const Accounts = () => {
   const [data, setData] = useState(null);
+  const [banks, setBanks] = useState([]);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showAllocateModal, setShowAllocateModal] = useState(false);
   const [showCapitalTypeModal, setShowCapitalTypeModal] = useState(false);
@@ -574,7 +641,22 @@ const Accounts = () => {
   useEffect(() => {
     fetchAccounts();
     fetchManagers();
+    fetchBanks();
   }, []);
+
+  const fetchBanks = async () => {
+    try {
+      console.log('🏦 Fetching banks...');
+      const response = await optimizedApi.get('/admin/bank-details');
+      console.log('🏦 Bank response:', response.data);
+      if (response.data.success) {
+        setBanks(response.data.data);
+        console.log('🏦 Banks set:', response.data.data);
+      }
+    } catch (error) {
+      console.error('❌ Error fetching banks:', error);
+    }
+  };
 
   useEffect(() => {
     fetchAccounts();
@@ -813,15 +895,14 @@ const Accounts = () => {
 
       {/* Machine/Equipment Capital Form - Inline */}
       {showMachineCapitalModal && (
-        <div className="mb-8">
-          <MachineEquipmentCapitalForm
-            onCancel={() => setShowMachineCapitalModal(false)}
-            onSuccess={() => {
-              setShowMachineCapitalModal(false);
-              fetchAccounts();
-            }}
-          />
-        </div>
+        <MachineEquipmentCapitalForm
+          banks={banks}
+          onCancel={() => setShowMachineCapitalModal(false)}
+          onSuccess={() => {
+            setShowMachineCapitalModal(false);
+            fetchAccounts();
+          }}
+        />
       )}
 
       <div className="bg-white p-4 md:p-6 rounded-lg shadow-sm border border-gray-200">
@@ -913,6 +994,7 @@ const Accounts = () => {
         showAddModal && (
           <AddTransactionModal
             type={modalType}
+            banks={banks}
             onClose={() => setShowAddModal(false)}
             onSuccess={() => {
               setShowAddModal(false);
@@ -925,6 +1007,7 @@ const Accounts = () => {
       {
         showAllocateModal && (
           <AllocateFundsModal
+            banks={banks}
             onClose={() => setShowAllocateModal(false)}
             onSuccess={() => {
               setShowAllocateModal(false);

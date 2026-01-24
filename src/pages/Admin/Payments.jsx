@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import api from '../../services/api';
+import optimizedApi from '../../services/optimizedApi';
 import { showToast } from '../../components/Toast';
 import VendorDetailModal from './VendorDetailModal';
 import ContractorDetailModal from './ContractorDetailModal';
@@ -12,6 +12,7 @@ const Payments = () => {
     const [managers, setManagers] = useState([]);
     const [stocks, setStocks] = useState([]); // Needed for Vendor stats
     const [machines, setMachines] = useState([]); // Needed for Contractor stats
+    const [banks, setBanks] = useState([]);
 
     // Filter States
     const [filters, setFilters] = useState({
@@ -34,7 +35,8 @@ const Payments = () => {
         paymentMode: 'cash',
         remarks: '',
         isAdvance: false,
-        slip: null
+        slip: null,
+        bankId: ''
     });
 
     // Detail Modal States
@@ -58,27 +60,39 @@ const Payments = () => {
 
     const fetchInitialData = async () => {
         try {
-            const [accountsRes, vendorsRes, contractorsRes, usersRes, stocksRes, machinesRes] = await Promise.all([
-                api.get('/admin/accounts'),
-                api.get('/admin/vendors'),
-                api.get('/admin/contractors'),
-                api.get('/admin/users'),
-                api.get('/admin/stocks'),
-                api.get('/admin/machines')
+            const results = await Promise.allSettled([
+                optimizedApi.get('/admin/accounts'),
+                optimizedApi.get('/admin/vendors'),
+                optimizedApi.get('/admin/contractors'),
+                optimizedApi.get('/admin/users'),
+                optimizedApi.get('/admin/stocks'),
+                optimizedApi.get('/admin/machines'),
+                optimizedApi.get('/admin/bank-details')
             ]);
 
-            if (accountsRes.data.success) {
-                setTransactions(accountsRes.data.data.transactions || []);
+            const [accountsRes, vendorsRes, contractorsRes, usersRes, stocksRes, machinesRes, banksRes] = results;
+
+            if (accountsRes.status === 'fulfilled' && accountsRes.value.data.success) {
+                setTransactions(accountsRes.value.data.data.transactions || []);
             }
-            if (vendorsRes.data.success) setVendors(vendorsRes.data.data);
-            if (contractorsRes.data.success) setContractors(contractorsRes.data.data);
-            if (usersRes.data.success) setManagers(usersRes.data.data.filter(u => u.role === 'sitemanager'));
-            if (stocksRes.data.success) setStocks(stocksRes.data.data);
-            if (machinesRes.data.success) setMachines(machinesRes.data.data);
+            if (vendorsRes.status === 'fulfilled' && vendorsRes.value.data.success) setVendors(vendorsRes.value.data.data);
+            if (contractorsRes.status === 'fulfilled' && contractorsRes.value.data.success) setContractors(contractorsRes.value.data.data);
+            if (usersRes.status === 'fulfilled' && usersRes.value.data.success) setManagers(usersRes.value.data.data.filter(u => u.role === 'sitemanager'));
+            if (stocksRes.status === 'fulfilled' && stocksRes.value.data.success) setStocks(stocksRes.value.data.data);
+            if (machinesRes.status === 'fulfilled' && machinesRes.value.data.success) setMachines(machinesRes.value.data.data);
+            if (banksRes.status === 'fulfilled' && banksRes.value.data.success) setBanks(banksRes.value.data.data);
+
+            // Log any failed requests
+            results.forEach((result, index) => {
+                const endpoints = ['accounts', 'vendors', 'contractors', 'users', 'stocks', 'machines', 'bank-details'];
+                if (result.status === 'rejected') {
+                    console.error(`Failed to fetch ${endpoints[index]}:`, result.reason);
+                }
+            });
 
         } catch (error) {
             console.error('Error fetching data:', error);
-            showToast('Failed to load payment data', 'error');
+            showToast('Failed to load some payment data', 'error');
         }
     };
 
@@ -128,7 +142,7 @@ const Payments = () => {
         if (filters.type === 'contractor') {
             // Promise.all might be heavy but let's try batching or just fire and forget state updates
             contractors.forEach(c => {
-                api.get(`/admin/contractors/${c._id}/payments`).then(res => {
+                optimizedApi.get(`/admin/contractors/${c._id}/payments`).then(res => {
                     if (res.data.success) {
                         const payments = res.data.data;
                         const totalPaid = payments.reduce((sum, p) => sum + (p.amount || 0), 0);
@@ -223,6 +237,9 @@ const Payments = () => {
             formData.append('remarks', modalData.remarks);
             const fullDate = new Date(`${modalData.date}T${modalData.time}`);
             formData.append('date', fullDate.toISOString());
+            if (modalData.bankId) {
+                formData.append('bankId', modalData.bankId);
+            }
 
             if (modalData.slip) {
                 formData.append(modalData.paymentType === 'vendor' ? 'receipt' : 'file', modalData.slip);
@@ -234,7 +251,7 @@ const Payments = () => {
                 endpoint = '/admin/vendors/payment';
                 formData.append('vendorId', modalData.entityId);
                 formData.append('isAdvance', modalData.isAdvance);
-                await api.post(endpoint, formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+                await optimizedApi.post(endpoint, formData, { headers: { 'Content-Type': 'multipart/form-data' } });
 
             } else if (modalData.paymentType === 'contractor') {
                 endpoint = '/admin/contractors/payments';
@@ -244,8 +261,9 @@ const Payments = () => {
                     paymentMode: modalData.paymentMode,
                     date: fullDate.toISOString(),
                     remarks: modalData.remarks,
+                    bankId: modalData.bankId || undefined
                 };
-                await api.post(endpoint, payload);
+                await optimizedApi.post(endpoint, payload);
 
             } else if (modalData.paymentType === 'manager') {
                 endpoint = '/admin/accounts/allocate';
@@ -253,9 +271,10 @@ const Payments = () => {
                     managerId: modalData.entityId,
                     amount: modalData.amount,
                     description: modalData.remarks,
-                    paymentMode: modalData.paymentMode
+                    paymentMode: modalData.paymentMode,
+                    bankId: modalData.bankId || undefined
                 };
-                await api.post(endpoint, payload);
+                await optimizedApi.post(endpoint, payload);
             }
 
             showToast('Payment recorded successfully', 'success');
@@ -280,7 +299,8 @@ const Payments = () => {
             paymentMode: 'cash',
             remarks: '',
             isAdvance: false,
-            slip: null
+            slip: null,
+            bankId: ''
         });
         fetchInitialData();
     };
@@ -614,6 +634,25 @@ const Payments = () => {
                                         <option value="bank">🏛️ Bank Transfer</option>
                                     </select>
                                 </div>
+
+                                {['bank', 'online', 'check'].includes(modalData.paymentMode) && (
+                                    <div className="md:col-span-2">
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">Select Bank Account</label>
+                                        <select
+                                            required
+                                            value={modalData.bankId}
+                                            onChange={(e) => setModalData({ ...modalData, bankId: e.target.value })}
+                                            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                                        >
+                                            <option value="">-- Select Bank Account --</option>
+                                            {banks.map(bank => (
+                                                <option key={bank._id} value={bank._id}>
+                                                    {bank.bankName} - {bank.holderName} ({bank.accountNumber?.slice(-4)})
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                )}
 
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-2">Date</label>

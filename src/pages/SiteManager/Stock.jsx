@@ -2,9 +2,11 @@ import { useState, useEffect } from 'react';
 import api from '../../services/api';
 import { showToast } from '../../components/Toast';
 import { useAuth } from '../../context/AuthContext';
+import { useSiteManager } from '../../context/SiteManagerContext';
 
 const Stock = () => {
     const { user } = useAuth();
+    const { selectedProject } = useSiteManager();
     const [movements, setMovements] = useState([]);
     const [projects, setProjects] = useState([]);
     const [materials, setMaterials] = useState([]); // Available materials from stocks
@@ -26,7 +28,8 @@ const Stock = () => {
     useEffect(() => {
         fetchProjects();
         fetchMovements(); // Fetch stock out records
-    }, [pagination.page, filters.search]); // Add filters dependency if we want auto-search, else manual
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [pagination.page, filters.search, selectedProject]); // Add selectedProject dependency
 
     // Fetch materials when project is selected
     useEffect(() => {
@@ -38,7 +41,17 @@ const Stock = () => {
     const fetchProjects = async () => {
         try {
             const res = await api.get('/site/projects');
-            if (res.data.success) setProjects(res.data.data);
+            if (res.data.success) {
+                let filteredProjects = res.data.data;
+                if (selectedProject) {
+                    filteredProjects = res.data.data.filter(p => p._id === selectedProject._id);
+                }
+                setProjects(filteredProjects);
+                // Auto-select project in form if we have one
+                if (filteredProjects.length > 0) {
+                    setOutFormData(prev => ({ ...prev, projectId: filteredProjects[0]._id }));
+                }
+            }
         } catch (error) {
             console.error('Failed to fetch projects', error);
         }
@@ -69,8 +82,15 @@ const Stock = () => {
         try {
             const res = await api.get('/site/stock-outs');
             if (res.data.success) {
-                setMovements(res.data.data);
-                console.log('✅ Stock Out records loaded:', res.data.data.length);
+                let filteredMovements = res.data.data;
+                if (selectedProject) {
+                    filteredMovements = res.data.data.filter(m => {
+                        const movementProjectId = typeof m.projectId === 'object' ? m.projectId._id : m.projectId;
+                        return movementProjectId === selectedProject._id;
+                    });
+                }
+                setMovements(filteredMovements);
+                console.log('✅ Stock Out records loaded:', filteredMovements.length);
             }
         } catch (error) {
             console.error('Failed to fetch stock outs', error);

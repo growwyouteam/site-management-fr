@@ -3,9 +3,11 @@ import api from '../../services/api';
 import { showToast } from '../../components/Toast';
 import Camera from '../../components/Camera';
 import { useAuth } from '../../context/AuthContext';
+import { useSiteManager } from '../../context/SiteManagerContext';
 
 const SMAttendance = () => {
   const { user } = useAuth();
+  const { setSelectedProject } = useSiteManager();
   const baseUrl = user?.role === 'admin' ? '/admin' : '/site';
   const [attendance, setAttendance] = useState([]);
   const [projects, setProjects] = useState([]);
@@ -26,12 +28,38 @@ const SMAttendance = () => {
 
       if (attendanceRes.data.success) {
         setAttendance(attendanceRes.data.data);
+
+        // Auto-set selected project from most recent attendance
+        if (attendanceRes.data.data.length > 0) {
+          const latestAttendance = attendanceRes.data.data[0]; // Assuming sorted by date desc
+          if (latestAttendance.projectId && typeof latestAttendance.projectId === 'object') {
+            setSelectedProject(latestAttendance.projectId);
+            console.log('🎯 Auto-selected project from latest attendance:', latestAttendance.projectId.name);
+          }
+        }
       }
 
       if (projectsRes.data.success) {
-        setProjects(projectsRes.data.data);
-        if (projectsRes.data.data.length > 0) {
-          setFormData(prev => ({ ...prev, projectId: projectsRes.data.data[0]._id }));
+        console.log('📋 All projects fetched:', projectsRes.data.data);
+        console.log('👤 Current user assignedSites:', user?.assignedSites);
+
+        // Filter projects to show only those assigned to this site manager
+        const assignedProjects = projectsRes.data.data.filter(project => {
+          // Check if project ID is in user's assignedSites array
+          if (user?.assignedSites && Array.isArray(user.assignedSites)) {
+            return user.assignedSites.some(siteId => {
+              const projectIdStr = typeof project._id === 'object' ? project._id.toString() : project._id;
+              const siteIdStr = typeof siteId === 'object' ? siteId.toString() : siteId;
+              return projectIdStr === siteIdStr;
+            });
+          }
+          return false;
+        });
+
+        console.log('✅ Filtered assigned projects:', assignedProjects);
+        setProjects(assignedProjects);
+        if (assignedProjects.length > 0) {
+          setFormData(prev => ({ ...prev, projectId: assignedProjects[0]._id }));
         }
       }
     } catch (error) {
@@ -46,10 +74,7 @@ const SMAttendance = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!formData.photo) {
-      showToast('Please capture a photo', 'error');
-      return;
-    }
+    // Photo is now optional, removed validation
     if (isSubmitting) return;
 
     try {
@@ -57,6 +82,14 @@ const SMAttendance = () => {
       const response = await api.post(`${baseUrl}/attendance`, formData);
       if (response.data.success) {
         showToast('Attendance marked successfully', 'success');
+
+        // Set the selected project in context
+        const selectedProj = projects.find(p => p._id === formData.projectId);
+        if (selectedProj) {
+          setSelectedProject(selectedProj);
+          console.log('✅ Selected project set:', selectedProj.name);
+        }
+
         setFormData({ date: new Date().toISOString().split('T')[0], projectId: projects[0]?._id || '', photo: '', remarks: '' });
         fetchData();
       }
@@ -86,7 +119,7 @@ const SMAttendance = () => {
           </div>
         </div>
         <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-700 mb-2">Photo</label>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Photo (optional)</label>
           <button type="button" onClick={() => setShowCamera(true)} className="px-5 py-2.5 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors font-medium">
             📸 Capture Photo
           </button>

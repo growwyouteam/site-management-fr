@@ -3,9 +3,11 @@ import api from '../../services/api';
 import { showToast } from '../../components/Toast';
 import Camera from '../../components/Camera';
 import { useAuth } from '../../context/AuthContext';
+import { useSiteManager } from '../../context/SiteManagerContext';
 
 const Gallery = () => {
   const { user } = useAuth();
+  const { selectedProject: contextSelectedProject } = useSiteManager();
   const baseUrl = user?.role === 'admin' ? '/admin' : '/site';
   const [projects, setProjects] = useState([]);
   const [gallery, setGallery] = useState([]);
@@ -16,7 +18,8 @@ const Gallery = () => {
 
   useEffect(() => {
     fetchData();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [contextSelectedProject]);
 
   const fetchData = async () => {
     try {
@@ -26,14 +29,25 @@ const Gallery = () => {
       ]);
 
       if (projectsRes.data.success) {
-        setProjects(projectsRes.data.data);
-        if (projectsRes.data.data.length > 0) {
-          setSelectedProject(projectsRes.data.data[0]._id);
+        let filteredProjects = projectsRes.data.data;
+        if (contextSelectedProject) {
+          filteredProjects = projectsRes.data.data.filter(p => p._id === contextSelectedProject._id);
+        }
+        setProjects(filteredProjects);
+        if (filteredProjects.length > 0) {
+          setSelectedProject(filteredProjects[0]._id);
         }
       }
 
       if (galleryRes.data.success) {
-        setGallery(galleryRes.data.data);
+        let filteredGallery = galleryRes.data.data;
+        if (contextSelectedProject) {
+          filteredGallery = galleryRes.data.data.filter(g => {
+            const galleryProjectId = typeof g.projectId === 'object' ? g.projectId._id : g.projectId;
+            return galleryProjectId === contextSelectedProject._id;
+          });
+        }
+        setGallery(filteredGallery);
       }
     } catch (error) {
       console.error('Error fetching data:', error);

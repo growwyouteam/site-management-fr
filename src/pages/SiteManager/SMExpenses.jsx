@@ -2,9 +2,11 @@ import { useState, useEffect } from 'react';
 import api from '../../services/api';
 import { showToast } from '../../components/Toast';
 import { useAuth } from '../../context/AuthContext';
+import { useSiteManager } from '../../context/SiteManagerContext';
 
 const SMExpenses = () => {
   const { user } = useAuth();
+  const { selectedProject } = useSiteManager();
   const baseUrl = user?.role === 'admin' ? '/admin' : '/site';
   const [projects, setProjects] = useState([]);
   const [expenses, setExpenses] = useState([]);
@@ -14,7 +16,14 @@ const SMExpenses = () => {
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, []); // Fetch data on mount
+
+  useEffect(() => {
+    if (selectedProject) {
+      fetchData();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedProject]); // Re-fetch when selected project changes
 
   const fetchData = async () => {
     try {
@@ -24,14 +33,28 @@ const SMExpenses = () => {
       ]);
 
       if (projectsRes.data.success) {
-        setProjects(projectsRes.data.data);
-        if (projectsRes.data.data.length > 0) {
-          setFormData(prev => ({ ...prev, projectId: projectsRes.data.data[0]._id }));
+        let filteredProjects = projectsRes.data.data;
+        if (selectedProject) {
+          filteredProjects = projectsRes.data.data.filter(p => p._id === selectedProject._id);
+        }
+        setProjects(filteredProjects);
+        if (filteredProjects.length > 0) {
+          setFormData(prev => ({ ...prev, projectId: filteredProjects[0]._id }));
         }
       }
 
       if (expensesRes.data.success) {
-        setExpenses(expensesRes.data.data);
+        let filteredExpenses = expensesRes.data.data;
+        console.log('🔍 Expenses - Selected Project:', selectedProject?.name);
+        console.log('📊 Total expenses before filter:', expensesRes.data.data.length);
+        if (selectedProject) {
+          filteredExpenses = expensesRes.data.data.filter(e => {
+            const expenseProjectId = typeof e.projectId === 'object' ? e.projectId._id : e.projectId;
+            return expenseProjectId === selectedProject._id;
+          });
+          console.log(`✅ Filtered ${filteredExpenses.length} expenses for project: ${selectedProject.name}`);
+        }
+        setExpenses(filteredExpenses);
       }
     } catch (error) {
       showToast('Failed to fetch data', 'error');

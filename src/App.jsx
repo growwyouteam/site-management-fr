@@ -5,6 +5,7 @@
 
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { SiteManagerProvider } from './context/SiteManagerContext';
 import { ToastManager } from './components/Toast';
 import { useEffect, Suspense, lazy } from 'react';
 import { onNotification } from './services/socket';
@@ -30,6 +31,7 @@ const Users = lazy(() => import('./pages/Admin/Users'));
 const Reports = lazy(() => import('./pages/Admin/Reports'));
 const Payments = lazy(() => import('./pages/Admin/Payments'));
 const BankDetails = lazy(() => import('./pages/Admin/BankDetails'));
+const BankDetailData = lazy(() => import('./pages/Admin/BankDetailData'));
 const Notifications = lazy(() => import('./pages/Admin/Notifications'));
 
 // Site Manager Pages
@@ -127,56 +129,61 @@ const AppRoutes = () => {
     );
   }
 
-  return (
+  const LayoutWrapper = user.role === 'sitemanager' ? (
+    <SiteManagerProvider>
+      <Layout>
+        <Suspense fallback={<Loading />}>
+          <Routes>
+            <Route path="/" element={<Navigate to="/site" replace />} />
+            <Route path="/site" element={<SMDashboard />} />
+            <Route path="/site/attendance" element={<SMAttendance />} />
+            <Route path="/site/labour" element={<Labour />} />
+            <Route path="/site/labour-attendance" element={<LabourAttendance />} />
+            <Route path="/site/stock" element={<SiteStock />} />
+            <Route path="/site/stock-in" element={<StockIn />} />
+            <Route path="/site/transfer" element={<SMTransfer />} />
+            <Route path="/site/daily-report" element={<DailyReport />} />
+            <Route path="/site/gallery" element={<Gallery />} />
+            <Route path="/site/expenses" element={<SMExpenses />} />
+            <Route path="/site/payment" element={<Payment />} />
+            <Route path="/site/notifications" element={<SMNotifications />} />
+            <Route path="/site/profile" element={<Profile />} />
+            <Route path="*" element={<Navigate to="/site" replace />} />
+          </Routes>
+        </Suspense>
+      </Layout>
+    </SiteManagerProvider>
+  ) : (
     <Layout>
       <Suspense fallback={<Loading />}>
         <Routes>
           {/* Admin Routes */}
-          {user.role === 'admin' ? (
-            <>
-              <Route path="/" element={<Navigate to="/admin" replace />} />
-              <Route path="/admin" element={<Dashboard />} />
-              <Route path="/admin/attendance" element={<Attendance />} />
-              <Route path="/admin/machines" element={<Machines />} />
-              <Route path="/admin/machines/:category" element={<MachineCategory />} />
-              <Route path="/admin/stock" element={<Stock />} />
-              <Route path="/admin/projects" element={<Projects />} />
-              <Route path="/admin/projects/:id" element={<ProjectDetail />} />
-              <Route path="/admin/vendors" element={<Vendors />} />
-              <Route path="/admin/contractors" element={<Contractors />} />
-              <Route path="/admin/expenses" element={<Expenses />} />
-              <Route path="/admin/transfer" element={<Transfer />} />
-              <Route path="/admin/accounts" element={<Accounts />} />
-              <Route path="/admin/users" element={<Users />} />
-              <Route path="/admin/payments" element={<Payments />} />
-              <Route path="/admin/bank-details" element={<BankDetails />} />
-              <Route path="/admin/reports" element={<Reports />} />
-              <Route path="/admin/notifications" element={<Notifications />} />
-              <Route path="*" element={<Navigate to="/admin" replace />} />
-            </>
-          ) : (
-            <>
-              <Route path="/" element={<Navigate to="/site" replace />} />
-              <Route path="/site" element={<SMDashboard />} />
-              <Route path="/site/attendance" element={<SMAttendance />} />
-              <Route path="/site/labour" element={<Labour />} />
-              <Route path="/site/labour-attendance" element={<LabourAttendance />} />
-              <Route path="/site/stock" element={<SiteStock />} />
-              <Route path="/site/stock-in" element={<StockIn />} />
-              <Route path="/site/transfer" element={<SMTransfer />} />
-              <Route path="/site/daily-report" element={<DailyReport />} />
-              <Route path="/site/gallery" element={<Gallery />} />
-              <Route path="/site/expenses" element={<SMExpenses />} />
-              <Route path="/site/payment" element={<Payment />} />
-              <Route path="/site/notifications" element={<SMNotifications />} />
-              <Route path="/site/profile" element={<Profile />} />
-              <Route path="*" element={<Navigate to="/site" replace />} />
-            </>
-          )}
+          <Route path="/" element={<Navigate to="/admin" replace />} />
+          <Route path="/admin" element={<Dashboard />} />
+          <Route path="/admin/attendance" element={<Attendance />} />
+          <Route path="/admin/machines" element={<Machines />} />
+          <Route path="/admin/machines/:category" element={<MachineCategory />} />
+          <Route path="/admin/stock" element={<Stock />} />
+          <Route path="/admin/projects" element={<Projects />} />
+          <Route path="/admin/projects/:id" element={<ProjectDetail />} />
+          <Route path="/admin/vendors" element={<Vendors />} />
+          <Route path="/admin/contractors" element={<Contractors />} />
+          <Route path="/admin/expenses" element={<Expenses />} />
+          <Route path="/admin/transfer" element={<Transfer />} />
+          <Route path="/admin/accounts" element={<Accounts />} />
+          <Route path="/admin/users" element={<Users />} />
+          <Route path="/admin/payments" element={<Payments />} />
+          <Route path="/admin/bank-details" element={<BankDetails />} />
+          <Route path="/admin/bank-details/:id" element={<BankDetailData />} />
+          <Route path="/admin/reports" element={<Reports />} />
+          <Route path="/admin/notifications" element={<Notifications />} />
+          <Route path="*" element={<Navigate to="/admin" replace />} />
         </Routes>
       </Suspense>
     </Layout>
   );
+
+  return LayoutWrapper;
 };
 
 // Main App

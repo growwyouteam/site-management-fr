@@ -3,9 +3,11 @@ import api from '../../services/api';
 import { showToast } from '../../components/Toast';
 import Camera from '../../components/Camera';
 import { useAuth } from '../../context/AuthContext';
+import { useSiteManager } from '../../context/SiteManagerContext';
 
 const DailyReport = () => {
   const { user } = useAuth();
+  const { selectedProject } = useSiteManager();
   const baseUrl = user?.role === 'admin' ? '/admin' : '/site';
   const [projects, setProjects] = useState([]);
   const [reports, setReports] = useState([]);
@@ -23,7 +25,8 @@ const DailyReport = () => {
 
   useEffect(() => {
     fetchData();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedProject]);
 
   useEffect(() => {
     if (formData.projectId) {
@@ -39,14 +42,25 @@ const DailyReport = () => {
       ]);
 
       if (projectsRes.data.success) {
-        setProjects(projectsRes.data.data);
-        if (projectsRes.data.data.length > 0) {
-          setFormData(prev => ({ ...prev, projectId: projectsRes.data.data[0]._id }));
+        let filteredProjects = projectsRes.data.data;
+        if (selectedProject) {
+          filteredProjects = projectsRes.data.data.filter(p => p._id === selectedProject._id);
+        }
+        setProjects(filteredProjects);
+        if (filteredProjects.length > 0) {
+          setFormData(prev => ({ ...prev, projectId: filteredProjects[0]._id }));
         }
       }
 
       if (reportsRes.data.success) {
-        setReports(reportsRes.data.data);
+        let filteredReports = reportsRes.data.data;
+        if (selectedProject) {
+          filteredReports = reportsRes.data.data.filter(r => {
+            const reportProjectId = typeof r.projectId === 'object' ? r.projectId._id : r.projectId;
+            return reportProjectId === selectedProject._id;
+          });
+        }
+        setReports(filteredReports);
       }
     } catch (error) {
       console.error('Error fetching data:', error);

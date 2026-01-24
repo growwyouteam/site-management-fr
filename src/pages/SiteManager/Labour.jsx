@@ -2,9 +2,11 @@ import { useState, useEffect } from 'react';
 import api from '../../services/api';
 import { showToast } from '../../components/Toast';
 import { useAuth } from '../../context/AuthContext';
+import { useSiteManager } from '../../context/SiteManagerContext';
 
 const Labour = () => {
   const { user } = useAuth();
+  const { selectedProject } = useSiteManager();
   const baseUrl = user?.role === 'admin' ? '/admin' : '/site';
   const [labours, setLabours] = useState([]);
   const [projects, setProjects] = useState([]);
@@ -14,7 +16,14 @@ const Labour = () => {
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, []); // Fetch data on mount
+
+  useEffect(() => {
+    if (selectedProject) {
+      fetchData();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedProject]); // Re-fetch when selected project changes
 
   const fetchData = async () => {
     try {
@@ -24,13 +33,28 @@ const Labour = () => {
       ]);
 
       if (laboursRes.data.success) {
-        setLabours(laboursRes.data.data);
+        let filteredLabours = laboursRes.data.data;
+        console.log('🔍 Labour - Selected Project:', selectedProject?.name);
+        // Filter labours by selected project
+        if (selectedProject) {
+          filteredLabours = laboursRes.data.data.filter(l => {
+            const labourSiteId = typeof l.assignedSite === 'object' ? l.assignedSite._id : l.assignedSite;
+            return labourSiteId === selectedProject._id;
+          });
+          console.log(`✅ Filtered ${filteredLabours.length} labours for project: ${selectedProject.name}`);
+        }
+        setLabours(filteredLabours);
       }
 
       if (projectsRes.data.success) {
-        setProjects(projectsRes.data.data);
-        if (projectsRes.data.data.length > 0) {
-          setFormData(prev => ({ ...prev, assignedSite: projectsRes.data.data[0]._id }));
+        let filteredProjects = projectsRes.data.data;
+        // Filter to show only selected project if one is set
+        if (selectedProject) {
+          filteredProjects = projectsRes.data.data.filter(p => p._id === selectedProject._id);
+        }
+        setProjects(filteredProjects);
+        if (filteredProjects.length > 0) {
+          setFormData(prev => ({ ...prev, assignedSite: filteredProjects[0]._id }));
         }
       }
     } catch (error) {

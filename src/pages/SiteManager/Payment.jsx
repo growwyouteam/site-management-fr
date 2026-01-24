@@ -2,9 +2,11 @@ import { useState, useEffect } from 'react';
 import api from '../../services/api';
 import { showToast } from '../../components/Toast';
 import { useAuth } from '../../context/AuthContext';
+import { useSiteManager } from '../../context/SiteManagerContext';
 
 const Payment = () => {
   const { user } = useAuth();
+  const { selectedProject } = useSiteManager();
   const baseUrl = user?.role === 'admin' ? '/admin' : '/site';
   const [labours, setLabours] = useState([]);
   const [payments, setPayments] = useState([]);
@@ -46,21 +48,33 @@ const Payment = () => {
 
   useEffect(() => {
     fetchData();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedProject]);
 
   const fetchData = async () => {
     try {
+      const labourQuery = selectedProject ? `?projectId=${selectedProject._id}` : '';
       const [laboursRes, paymentsRes] = await Promise.all([
-        api.get(`${baseUrl}/labours`),
+        api.get(`${baseUrl}/labours${labourQuery}`),
         api.get(`${baseUrl}/payments`)
       ]);
 
+      let labs = [];
+
       if (laboursRes.data.success) {
-        setLabours(laboursRes.data.data);
+        labs = laboursRes.data.data;
+        setLabours(labs);
       }
 
       if (paymentsRes.data.success) {
-        setPayments(paymentsRes.data.data);
+        // Filter payments to only include those for the filtered labours
+        // Since payment doesn't strictly have projectId, we infer from labour association
+        let filteredPay = paymentsRes.data.data;
+        if (selectedProject) {
+          const validLabourIds = labs.map(l => l._id);
+          filteredPay = paymentsRes.data.data.filter(p => validLabourIds.includes(p.labourId));
+        }
+        setPayments(filteredPay);
       }
     } catch (error) {
       console.error('Error fetching data:', error);
