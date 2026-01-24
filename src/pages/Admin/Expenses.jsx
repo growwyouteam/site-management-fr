@@ -5,6 +5,8 @@ import api from '../../services/api';
 const Expenses = () => {
   const [expenses, setExpenses] = useState([]);
   const [projects, setProjects] = useState([]);
+  const [banks, setBanks] = useState([]);
+  const [creditors, setCreditors] = useState([]);
   const [showForm, setShowForm] = useState(false);
   const [selectedProject, setSelectedProject] = useState('all');
   const [editingExpense, setEditingExpense] = useState(null);
@@ -15,13 +17,18 @@ const Expenses = () => {
     voucherNumber: '',
     category: 'material',
     remarks: '',
-    paymentMode: 'cash'
+    paymentMode: 'cash',
+    bankId: '',
+    creditorId: ''
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     fetchProjects();
     fetchExpenses();
+    fetchExpenses();
+    fetchBanks();
+    fetchCreditors();
   }, []);
 
   const fetchExpenses = async () => {
@@ -91,6 +98,28 @@ const Expenses = () => {
     }
   };
 
+  const fetchBanks = async () => {
+    try {
+      const response = await api.get('/admin/bank-details');
+      if (response.data.success) {
+        setBanks(response.data.data);
+      }
+    } catch (error) {
+      console.error('Error fetching banks:', error);
+    }
+  };
+
+  const fetchCreditors = async () => {
+    try {
+      const response = await api.get('/admin/creditors');
+      if (response.data.success) {
+        setCreditors(response.data.data);
+      }
+    } catch (error) {
+      console.error('Error fetching creditors:', error);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (isSubmitting) return;
@@ -143,7 +172,9 @@ const Expenses = () => {
           voucherNumber: '',
           category: 'material',
           remarks: '',
-          paymentMode: 'cash'
+          paymentMode: 'cash',
+          bankId: '',
+          creditorId: ''
         });
         fetchExpenses();
       }
@@ -200,7 +231,9 @@ const Expenses = () => {
       voucherNumber: '',
       category: 'material',
       remarks: '',
-      paymentMode: 'cash'
+      paymentMode: 'cash',
+      bankId: '',
+      creditorId: ''
     });
   };
 
@@ -314,6 +347,44 @@ const Expenses = () => {
                 <option value="other">🔹 Other</option>
               </select>
             </div>
+
+            {/* Bank Account Selection - Shows when UPI/Bank/Check selected */}
+            {['upi', 'bank', 'check'].includes(formData.paymentMode) && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Select Bank Account</label>
+                <select
+                  required
+                  value={formData.bankId}
+                  onChange={(e) => setFormData({ ...formData, bankId: e.target.value })}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">-- Select Bank Account --</option>
+                  {banks.map(bank => (
+                    <option key={bank._id} value={bank._id}>
+                      {bank.bankName} - {bank.holderName} ({bank.accountNumber?.slice(-4)})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {/* Creditor Selection - Shows when Cash selected */}
+            {formData.paymentMode === 'cash' && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Select Creditor (Optional)</label>
+                <select
+                  value={formData.creditorId}
+                  onChange={(e) => setFormData({ ...formData, creditorId: e.target.value })}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">-- Select Creditor (Optional) --</option>
+                  {creditors.map(c => (
+                    <option key={c._id} value={c._id}>{c.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Remarks</label>
               <input

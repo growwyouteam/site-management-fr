@@ -42,10 +42,13 @@ const Payments = () => {
     // Detail Modal States
     const [selectedVendor, setSelectedVendor] = useState(null);
     const [selectedContractor, setSelectedContractor] = useState(null);
+
     const [contractorStats, setContractorStats] = useState({});
+    const [creditors, setCreditors] = useState([]);
 
     useEffect(() => {
         fetchInitialData();
+        fetchCreditors();
     }, []);
 
     useEffect(() => {
@@ -226,6 +229,22 @@ const Payments = () => {
         setFilteredTransactions(result);
     };
 
+    const fetchCreditors = async () => {
+        try {
+            console.log('🔍 Fetching creditors in Payments component...');
+            const response = await optimizedApi.get('/admin/creditors');
+            console.log('📦 Creditors response:', response.data);
+            if (response.data.success) {
+                console.log('✅ Setting creditors:', response.data.data);
+                setCreditors(response.data.data);
+            } else {
+                console.log('❌ Response not successful:', response.data);
+            }
+        } catch (error) {
+            console.error('❌ Error fetching creditors:', error);
+        }
+    };
+
     const handleModalSubmit = async (e) => {
         e.preventDefault();
         setIsSubmitting(true);
@@ -239,6 +258,9 @@ const Payments = () => {
             formData.append('date', fullDate.toISOString());
             if (modalData.bankId) {
                 formData.append('bankId', modalData.bankId);
+            }
+            if (modalData.creditorId) {
+                formData.append('creditorId', modalData.creditorId);
             }
 
             if (modalData.slip) {
@@ -261,7 +283,10 @@ const Payments = () => {
                     paymentMode: modalData.paymentMode,
                     date: fullDate.toISOString(),
                     remarks: modalData.remarks,
-                    bankId: modalData.bankId || undefined
+                    date: fullDate.toISOString(),
+                    remarks: modalData.remarks,
+                    bankId: modalData.bankId || undefined,
+                    creditorId: modalData.creditorId || undefined
                 };
                 await optimizedApi.post(endpoint, payload);
 
@@ -649,6 +674,22 @@ const Payments = () => {
                                                 <option key={bank._id} value={bank._id}>
                                                     {bank.bankName} - {bank.holderName} ({bank.accountNumber?.slice(-4)})
                                                 </option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                )}
+
+                                {modalData.paymentMode === 'cash' && (
+                                    <div className="md:col-span-2">
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">Select Creditor (Optional)</label>
+                                        <select
+                                            value={modalData.creditorId || ''}
+                                            onChange={(e) => setModalData({ ...modalData, creditorId: e.target.value })}
+                                            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                                        >
+                                            <option value="">-- Select Creditor (Optional) --</option>
+                                            {creditors.map(c => (
+                                                <option key={c._id} value={c._id}>{c.name}</option>
                                             ))}
                                         </select>
                                     </div>

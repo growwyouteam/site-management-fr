@@ -96,9 +96,11 @@ const AddTransactionModal = ({ type, onClose, onSuccess, banks }) => {
     date: new Date().toISOString().split('T')[0],
     category: type === 'capital' ? 'capital' : type === 'expense' ? 'expense' : 'other',
     type: type === 'capital' ? 'credit' : 'debit', // default based on card
-    bankId: ''
+    bankId: '',
+    creditorId: ''
   });
   const [loading, setLoading] = useState(false);
+  const [creditors, setCreditors] = useState([]);
 
   useEffect(() => {
     // Set defaults based on type
@@ -111,7 +113,19 @@ const AddTransactionModal = ({ type, onClose, onSuccess, banks }) => {
     } else if (type === 'cash') {
       setFormData(prev => ({ ...prev, category: 'other', type: 'debit', paymentMode: 'cash', description: 'Cash Withdrawal' }));
     }
+    fetchCreditors();
   }, [type]);
+
+  const fetchCreditors = async () => {
+    try {
+      const response = await optimizedApi.get('/admin/creditors');
+      if (response.data.success) {
+        setCreditors(response.data.data);
+      }
+    } catch (error) {
+      console.error('Error fetching creditors:', error);
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -127,7 +141,10 @@ const AddTransactionModal = ({ type, onClose, onSuccess, banks }) => {
       const res = await optimizedApi.post(endpoint, {
         ...formData,
         category: formData.category, // Allow user override?
-        type: formData.type
+        ...formData,
+        category: formData.category, // Allow user override?
+        type: formData.type,
+        creditorId: formData.creditorId || undefined
       });
 
       if (res.data.success) {
@@ -193,6 +210,23 @@ const AddTransactionModal = ({ type, onClose, onSuccess, banks }) => {
               </select>
             </div>
           </div>
+
+          {/* Creditor Selection - Shows when Cash selected */}
+          {formData.paymentMode === 'cash' && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Select Creditor (Optional)</label>
+              <select
+                value={formData.creditorId}
+                onChange={e => setFormData({ ...formData, creditorId: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">-- Select Creditor (Optional) --</option>
+                {creditors.map(c => (
+                  <option key={c._id} value={c._id}>{c.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
 
           {showBankDropdown && (
             <div>

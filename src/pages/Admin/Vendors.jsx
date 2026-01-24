@@ -20,9 +20,16 @@ const Vendors = () => {
   const [formData, setFormData] = useState({ name: '', contact: '', email: '', address: '' });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [banks, setBanks] = useState([]);
+  const [creditors, setCreditors] = useState([]);
+  const [selectedBank, setSelectedBank] = useState('');
+  const [selectedCreditor, setSelectedCreditor] = useState('');
 
   useEffect(() => {
     fetchVendors();
+    fetchVendors();
+    fetchBanks();
+    fetchCreditors();
   }, []);
 
   // Calculate vendor statistics
@@ -85,6 +92,28 @@ const Vendors = () => {
     } catch (error) {
       showToast('Failed to fetch data', 'error');
       console.error('Error fetching data:', error);
+    }
+  };
+
+  const fetchBanks = async () => {
+    try {
+      const response = await api.get('/admin/bank-details');
+      if (response.data.success) {
+        setBanks(response.data.data);
+      }
+    } catch (error) {
+      console.error('Error fetching banks:', error);
+    }
+  };
+
+  const fetchCreditors = async () => {
+    try {
+      const response = await api.get('/admin/creditors');
+      if (response.data.success) {
+        setCreditors(response.data.data);
+      }
+    } catch (error) {
+      console.error('Error fetching creditors:', error);
     }
   };
 
@@ -165,6 +194,12 @@ const Vendors = () => {
       formData.append('paymentMode', paymentMode);
       formData.append('date', combinedDate.toISOString());
       formData.append('remarks', paymentRemarks);
+      if (['bank_transfer', 'upi', 'check'].includes(paymentMode) && selectedBank) {
+        formData.append('bankId', selectedBank);
+      }
+      if (selectedCreditor) {
+        formData.append('creditorId', selectedCreditor);
+      }
 
       // Calculate if payment creates advance
       const paymentAmt = parseFloat(paymentAmount);
@@ -196,6 +231,7 @@ const Vendors = () => {
         setPaymentMode('cash');
         setPaymentSlip(null);
         setSelectedVendor(null);
+        setSelectedBank('');
         fetchVendors();
       }
     } catch (error) {
@@ -541,6 +577,43 @@ const Vendors = () => {
                     </select>
                   </div>
 
+                  {/* Bank Account Selection - Conditional */}
+                  {['bank_transfer', 'upi', 'check'].includes(paymentMode) && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Select Bank Account</label>
+                      <select
+                        value={selectedBank}
+                        onChange={(e) => setSelectedBank(e.target.value)}
+                        className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                        required
+                      >
+                        <option value="">-- Select Bank Account --</option>
+                        {banks.map(bank => (
+                          <option key={bank._id} value={bank._id}>
+                            {bank.bankName} - {bank.holderName} ({bank.accountNumber?.slice(-4)})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  {/* Creditor Selection - Shows when Cash selected */}
+                  {paymentMode === 'cash' && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Select Creditor (Optional)</label>
+                      <select
+                        value={selectedCreditor}
+                        onChange={(e) => setSelectedCreditor(e.target.value)}
+                        className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                      >
+                        <option value="">-- Select Creditor (Optional) --</option>
+                        {creditors.map(c => (
+                          <option key={c._id} value={c._id}>{c.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Payment Slip</label>
                     <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:bg-gray-50 transition-colors cursor-pointer relative">
@@ -585,7 +658,7 @@ const Vendors = () => {
               {/* Footer */}
               <div className="flex gap-3 justify-end mt-8 border-t pt-4">
                 <button
-                  onClick={() => { setShowPaymentModal(false); setPaymentAmount(''); setSelectedVendor(null); }}
+                  onClick={() => { setShowPaymentModal(false); setPaymentAmount(''); setSelectedVendor(null); setSelectedBank(''); }}
                   className="px-6 py-2.5 bg-white text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 font-medium transition-colors"
                 >
                   Cancel

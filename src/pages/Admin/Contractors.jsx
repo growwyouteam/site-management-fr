@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { showToast } from '../../components/Toast';
 import api from '../../services/api';
@@ -12,6 +13,9 @@ const Contractors = () => {
     const [selectedContractor, setSelectedContractor] = useState(null);
     const [contractorStats, setContractorStats] = useState({});
     const [projects, setProjects] = useState([]);
+    const [machines, setMachines] = useState([]); // Added
+    const [banks, setBanks] = useState([]);
+    const [creditors, setCreditors] = useState([]); // Added
     const [formData, setFormData] = useState({
         name: '',
         mobile: '',
@@ -28,14 +32,21 @@ const Contractors = () => {
         remark: '',
         machineRent: 0,
         deductRent: false,
-        paymentMode: 'cash'
+        paymentMode: 'cash',
+        bankId: '',
+        creditorId: ''
     });
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
+    const [selectedBank, setSelectedBank] = useState('');
+    const [selectedCreditor, setSelectedCreditor] = useState(''); // Added
 
     useEffect(() => {
         fetchContractors();
         fetchProjects();
+        fetchMachines(); // Added
+        fetchBanks();
+        fetchCreditors(); // Added
     }, []);
 
     const fetchProjects = async () => {
@@ -46,6 +57,17 @@ const Contractors = () => {
             }
         } catch (error) {
             console.error('Error fetching projects:', error);
+        }
+    };
+
+    const fetchMachines = async () => { // Added
+        try {
+            const response = await api.get('/admin/machines');
+            if (response.data.success) {
+                setMachines(response.data.data);
+            }
+        } catch (error) {
+            console.error('Error fetching machines:', error);
         }
     };
 
@@ -107,6 +129,28 @@ const Contractors = () => {
         } catch (error) {
             showToast('Failed to fetch contractors', 'error');
             console.error('Error fetching contractors:', error);
+        }
+    };
+
+    const fetchBanks = async () => {
+        try {
+            const response = await api.get('/admin/bank-details');
+            if (response.data.success) {
+                setBanks(response.data.data);
+            }
+        } catch (error) {
+            console.error('Error fetching banks:', error);
+        }
+    };
+
+    const fetchCreditors = async () => { // Added
+        try {
+            const response = await api.get('/admin/creditors');
+            if (response.data.success) {
+                setCreditors(response.data.data);
+            }
+        } catch (error) {
+            console.error('Error fetching creditors:', error);
         }
     };
 
@@ -182,8 +226,12 @@ const Contractors = () => {
             remark: '',
             machineRent,
             deductRent: false,
-            paymentMode: 'cash'
+            paymentMode: 'cash',
+            bankId: '',
+            creditorId: ''
         });
+        setSelectedBank('');
+        setSelectedCreditor('');
         setActiveModal('payment');
     };
 
@@ -222,7 +270,9 @@ const Contractors = () => {
                 paymentMode: paymentData.paymentMode,
                 remark: paymentData.remark,
                 machineRent: paymentData.machineRent,
-                rentDeducted: paymentData.deductRent
+                rentDeducted: paymentData.deductRent,
+                bankId: selectedBank,
+                creditorId: selectedCreditor
             };
 
             const response = await api.post('/admin/contractors/payments', payment);
@@ -306,8 +356,9 @@ const Contractors = () => {
 
     return (
         <div className="p-4 md:p-6 lg:p-8 max-w-7xl mx-auto">
-            <div className="flex justify-between items-center mb-6">
-                <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Contractors</h1>
+            <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-6">Contractors</h1>
+
+            <div className="flex flex-col sm:flex-row gap-3 mb-6">
                 <button
                     onClick={() => setShowForm(!showForm)}
                     className="px-5 py-2.5 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors font-medium"
@@ -319,7 +370,7 @@ const Contractors = () => {
                     placeholder="Search contractors..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 w-64"
+                    className="px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 w-full sm:w-64"
                 />
             </div>
 
@@ -770,6 +821,43 @@ const Contractors = () => {
                                             <option value="other">🔹 Other</option>
                                         </select>
                                     </div>
+
+                                    {/* Bank Account Selection - Conditional */}
+                                    {['bank', 'upi', 'check'].includes(paymentData.paymentMode) && (
+                                        <div className="md:col-span-2">
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">Select Bank Account</label>
+                                            <select
+                                                value={selectedBank}
+                                                onChange={(e) => setSelectedBank(e.target.value)}
+                                                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                required
+                                            >
+                                                <option value="">-- Select Bank Account --</option>
+                                                {banks.map(bank => (
+                                                    <option key={bank._id} value={bank._id}>
+                                                        {bank.bankName} - {bank.holderName} ({bank.accountNumber?.slice(-4)})
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    )}
+
+                                    {/* Creditor Selection - Shows when Cash selected */}
+                                    {paymentData.paymentMode === 'cash' && (
+                                        <div className="md:col-span-2">
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">Select Creditor (Optional)</label>
+                                            <select
+                                                value={selectedCreditor}
+                                                onChange={(e) => setSelectedCreditor(e.target.value)}
+                                                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                            >
+                                                <option value="">-- Select Creditor (Optional) --</option>
+                                                {creditors.map(c => (
+                                                    <option key={c._id} value={c._id}>{c.name}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    )}
 
                                     <div className="md:col-span-2">
                                         <div className="flex items-center p-3 bg-gray-50 rounded-lg">

@@ -19,6 +19,7 @@ const Sidebar = () => {
     { path: '/admin/projects', label: 'Projects', icon: '🏗️' },
     { path: '/admin/vendors', label: 'Vendors', icon: '🏪' },
     { path: '/admin/contractors', label: 'Contractors', icon: '👷' },
+    { path: '/admin/creditors', label: 'Creditors', icon: '🔖' },
     { path: '/admin/expenses', label: 'Expenses', icon: '💰' },
     { path: '/admin/payments', label: 'Payments', icon: '💵' },
     { path: '/admin/transfer', label: 'Transfer', icon: '🔄' },

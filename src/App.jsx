@@ -24,6 +24,7 @@ const Projects = lazy(() => import('./pages/Admin/Projects'));
 const ProjectDetail = lazy(() => import('./pages/Admin/ProjectDetail'));
 const Vendors = lazy(() => import('./pages/Admin/Vendors'));
 const Contractors = lazy(() => import('./pages/Admin/Contractors'));
+const Creditors = lazy(() => import('./pages/Admin/Creditors'));
 const Expenses = lazy(() => import('./pages/Admin/Expenses'));
 const Transfer = lazy(() => import('./pages/Admin/Transfer'));
 const Accounts = lazy(() => import('./pages/Admin/Accounts'));
@@ -168,6 +169,7 @@ const AppRoutes = () => {
           <Route path="/admin/projects/:id" element={<ProjectDetail />} />
           <Route path="/admin/vendors" element={<Vendors />} />
           <Route path="/admin/contractors" element={<Contractors />} />
+          <Route path="/admin/creditors" element={<Creditors />} />
           <Route path="/admin/expenses" element={<Expenses />} />
           <Route path="/admin/transfer" element={<Transfer />} />
           <Route path="/admin/accounts" element={<Accounts />} />
