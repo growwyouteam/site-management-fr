@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { showToast } from '../../components/Toast';
+import api from '../../services/api';
 import optimizedApi from '../../services/optimizedApi';
 import { usePerformanceMonitor } from '../../utils/performanceMonitor';
 import { debugAuth, testApiCall } from '../../utils/debugAuth';
@@ -25,6 +26,8 @@ const Stock = () => {
   const [showDetail, setShowDetail] = useState(false);
   const [editingStock, setEditingStock] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [materialNames, setMaterialNames] = useState([]);
+  const [loadingMaterials, setLoadingMaterials] = useState(false);
 
   // Filter states
   const [filterProject, setFilterProject] = useState('');
@@ -43,7 +46,23 @@ const Stock = () => {
     }, 2000);
 
     fetchData();
+    fetchMaterialNames();
   }, []);
+
+  const fetchMaterialNames = async () => {
+    try {
+      setLoadingMaterials(true);
+      const response = await api.get('/admin/item-names?category=consumables');
+      if (response.data.success) {
+        setMaterialNames(response.data.data);
+      }
+    } catch (error) {
+      console.error('Error fetching material names:', error);
+      showToast('Failed to load material names', 'error');
+    } finally {
+      setLoadingMaterials(false);
+    }
+  };
 
   const fetchData = async () => {
     try {
@@ -424,14 +443,21 @@ const Stock = () => {
           </div>
           <div className="mb-4">
             <label className="block text-sm font-medium text-gray-700 mb-2">Material Name</label>
-            <input
-              type="text"
-              value={formData.materialName}
-              onChange={(e) => setFormData({ ...formData, materialName: e.target.value })}
-              placeholder="e.g., Cement, Steel Rods"
-              required
-              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
+            {loadingMaterials ? (
+              <div className="text-sm text-gray-500">Loading materials...</div>
+            ) : (
+              <select
+                value={formData.materialName}
+                onChange={(e) => setFormData({ ...formData, materialName: e.target.value })}
+                required
+                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">Select Material</option>
+                {materialNames.map(item => (
+                  <option key={item._id} value={item.name}>{item.name}</option>
+                ))}
+              </select>
+            )}
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
             <div>

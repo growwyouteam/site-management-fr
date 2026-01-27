@@ -20,6 +20,7 @@ const Attendance = lazy(() => import('./pages/Admin/Attendance'));
 const Machines = lazy(() => import('./pages/Admin/Machines'));
 const MachineCategory = lazy(() => import('./pages/Admin/MachineCategory'));
 const Stock = lazy(() => import('./pages/Admin/Stock'));
+const StockDetails = lazy(() => import('./pages/Admin/StockDetails'));
 const Projects = lazy(() => import('./pages/Admin/Projects'));
 const ProjectDetail = lazy(() => import('./pages/Admin/ProjectDetail'));
 const Vendors = lazy(() => import('./pages/Admin/Vendors'));
@@ -95,7 +96,24 @@ const Layout = ({ children }) => {
         showToast(notification.message, 'info', 5000);
         playNotificationSound();
       });
+      onNotification((notification) => {
+        showToast(notification.message, 'info', 5000);
+        playNotificationSound();
+      });
     }
+
+    // Global listener to prevent scroll-to-change on number inputs
+    const handleWheel = (e) => {
+      if (document.activeElement.type === 'number') {
+        document.activeElement.blur();
+      }
+    };
+
+    window.addEventListener('wheel', handleWheel, { passive: false });
+
+    return () => {
+      window.removeEventListener('wheel', handleWheel);
+    };
   }, [user]);
 
   return (
@@ -164,6 +182,7 @@ const AppRoutes = () => {
           <Route path="/admin/attendance" element={<Attendance />} />
           <Route path="/admin/machines" element={<Machines />} />
           <Route path="/admin/machines/:category" element={<MachineCategory />} />
+          <Route path="/admin/stock-details" element={<StockDetails />} />
           <Route path="/admin/stock" element={<Stock />} />
           <Route path="/admin/projects" element={<Projects />} />
           <Route path="/admin/projects/:id" element={<ProjectDetail />} />

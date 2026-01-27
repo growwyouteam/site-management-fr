@@ -15,6 +15,7 @@ const Sidebar = () => {
     { path: '/admin', label: 'Dashboard', icon: '📊' },
     { path: '/admin/attendance', label: 'Attendance', icon: '📸' },
     { path: '/admin/machines', label: 'Machines', icon: '🚜' },
+    { path: '/admin/stock-details', label: 'Stock Detail', icon: '📋' },
     { path: '/admin/stock', label: 'Stock', icon: '📦' },
     { path: '/admin/projects', label: 'Projects', icon: '🏗️' },
     { path: '/admin/vendors', label: 'Vendors', icon: '🏪' },

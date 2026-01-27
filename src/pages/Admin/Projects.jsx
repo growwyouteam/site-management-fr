@@ -16,6 +16,7 @@ const Projects = () => {
     roadDistanceUnit: 'km'
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [editingProject, setEditingProject] = useState(null);
 
   useEffect(() => {
     fetchProjects();
@@ -39,14 +40,21 @@ const Projects = () => {
 
     try {
       setIsSubmitting(true);
-      const response = await api.post('/admin/projects', {
+      const url = editingProject
+        ? `/admin/projects/${editingProject._id}`
+        : '/admin/projects';
+
+      const method = editingProject ? 'put' : 'post';
+
+      const response = await api[method](url, {
         ...formData,
         budget: Number(formData.budget) || 0,
-        status: 'running'
+        status: editingProject ? editingProject.status : 'running'
       });
       if (response.data.success) {
-        showToast('Project created successfully', 'success');
+        showToast(`Project ${editingProject ? 'updated' : 'created'} successfully`, 'success');
         setShowForm(false);
+        setEditingProject(null);
         setFormData({
           name: '',
           location: '',
@@ -59,8 +67,8 @@ const Projects = () => {
         fetchProjects();
       }
     } catch (error) {
-      showToast(error.response?.data?.error || 'Failed to create project', 'error');
-      console.error('Error creating project:', error);
+      showToast(error.response?.data?.error || `Failed to ${editingProject ? 'update' : 'create'} project`, 'error');
+      console.error(`Error ${editingProject ? 'updating' : 'creating'} project:`, error);
     } finally {
       setIsSubmitting(false);
     }
@@ -80,11 +88,40 @@ const Projects = () => {
     }
   };
 
+  const handleEdit = (project) => {
+    setEditingProject(project);
+    setFormData({
+      name: project.name,
+      location: project.location,
+      budget: project.budget,
+      startDate: project.startDate ? project.startDate.split('T')[0] : '',
+      endDate: project.endDate ? project.endDate.split('T')[0] : '',
+      roadDistanceValue: project.roadDistanceValue || '',
+      roadDistanceUnit: project.roadDistanceUnit || 'km'
+    });
+    setShowForm(true);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const resetForm = () => {
+    setShowForm(!showForm);
+    setEditingProject(null);
+    setFormData({
+      name: '',
+      location: '',
+      budget: '',
+      startDate: '',
+      endDate: '',
+      roadDistanceValue: '',
+      roadDistanceUnit: 'km'
+    });
+  };
+
   return (
     <div className="p-4 md:p-6 lg:p-8 max-w-7xl mx-auto">
       <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-6">Projects</h1>
       <button
-        onClick={() => setShowForm(!showForm)}
+        onClick={resetForm}
         className="px-5 py-2.5 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors font-medium"
       >
         {showForm ? 'Cancel' : 'Create New Project'}
@@ -174,7 +211,7 @@ const Projects = () => {
             className={`px-6 py-2.5 text-white rounded-lg transition-colors font-medium flex items-center gap-2 ${isSubmitting ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-500 hover:bg-green-600'}`}
           >
             {isSubmitting && <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>}
-            {isSubmitting ? 'Creating...' : 'Create Project'}
+            {isSubmitting ? (editingProject ? 'Updating...' : 'Creating...') : (editingProject ? 'Update Project' : 'Create Project')}
           </button>
         </form>
       )}
@@ -211,6 +248,13 @@ const Projects = () => {
               >
                 👁️
               </Link>
+              <button
+                onClick={() => handleEdit(p)}
+                className="flex-1 px-3 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors text-sm font-medium"
+                title="Edit"
+              >
+                ✏️
+              </button>
               <button
                 onClick={() => handleDelete(p._id)}
                 className="flex-1 px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors text-sm font-medium"

@@ -15,6 +15,7 @@ const BankDetails = () => {
         ifscCode: ''
     });
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [showTransferModal, setShowTransferModal] = useState(false);
 
     useEffect(() => {
         fetchBanks();
@@ -64,6 +65,118 @@ const BankDetails = () => {
         }
     };
 
+    const TransferModal = ({ onClose, onSuccess, banks }) => {
+        const [transferData, setTransferData] = useState({
+            sourceBankId: '',
+            destBankId: '',
+            amount: '',
+            date: new Date().toISOString().split('T')[0],
+            description: ''
+        });
+        const [loading, setLoading] = useState(false);
+
+        const handleSubmit = async (e) => {
+            e.preventDefault();
+            if (transferData.sourceBankId === transferData.destBankId) {
+                showToast('Source and Destination banks cannot be same', 'error');
+                return;
+            }
+            setLoading(true);
+            try {
+                const response = await optimizedApi.post('/admin/bank-details/transfer', transferData);
+                if (response.data.success) {
+                    showToast('Transfer successful', 'success');
+                    onSuccess();
+                }
+            } catch (error) {
+                showToast(error.response?.data?.error || 'Transfer failed', 'error');
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        return (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+                <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden animate-fade-in-down">
+                    <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+                        <h2 className="text-xl font-bold text-gray-800">Bank to Bank Transfer</h2>
+                        <button onClick={onClose} className="text-gray-400 hover:text-gray-600">✕</button>
+                    </div>
+                    <form onSubmit={handleSubmit} className="p-6 space-y-4">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Source Bank (From)</label>
+                            <select
+                                required
+                                value={transferData.sourceBankId}
+                                onChange={(e) => setTransferData({ ...transferData, sourceBankId: e.target.value })}
+                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                            >
+                                <option value="">Select Source Bank</option>
+                                {banks.map(b => (
+                                    <option key={b._id} value={b._id}>{b.bankName} - {b.holderName}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Destination Bank (To)</label>
+                            <select
+                                required
+                                value={transferData.destBankId}
+                                onChange={(e) => setTransferData({ ...transferData, destBankId: e.target.value })}
+                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                            >
+                                <option value="">Select Destination Bank</option>
+                                {banks.map(b => (
+                                    <option key={b._id} value={b._id} disabled={b._id === transferData.sourceBankId}>
+                                        {b.bankName} - {b.holderName}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Amount</label>
+                            <input
+                                type="number"
+                                required
+                                value={transferData.amount}
+                                onChange={(e) => setTransferData({ ...transferData, amount: e.target.value })}
+                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                                placeholder="0.00"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
+                            <input
+                                type="date"
+                                required
+                                value={transferData.date}
+                                onChange={(e) => setTransferData({ ...transferData, date: e.target.value })}
+                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                            <input
+                                type="text"
+                                value={transferData.description}
+                                onChange={(e) => setTransferData({ ...transferData, description: e.target.value })}
+                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                                placeholder="Optional remarks"
+                            />
+                        </div>
+                        <button
+                            type="submit"
+                            disabled={loading}
+                            className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition-colors font-bold shadow-md"
+                        >
+                            {loading ? 'Processing...' : 'Transfer Funds'}
+                        </button>
+                    </form>
+                </div>
+            </div>
+        );
+    };
+
     // Function to mask account number (show only last 4 digits)
     const maskAccountNumber = (accNo) => {
         if (!accNo) return '';
@@ -75,15 +188,24 @@ const BankDetails = () => {
 
     return (
         <div className="p-4 md:p-6 lg:p-8 max-w-7xl mx-auto">
-            <div className="flex justify-between items-center mb-6">
+            <div className="flex justify-between items-center mb-6 gap-3">
                 <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Bank Details</h1>
-                <button
-                    onClick={() => setShowModal(true)}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 font-medium shadow-md"
-                >
-                    <span className="text-xl font-bold">+</span>
-                    Add Bank
-                </button>
+                <div className="flex gap-3">
+                    <button
+                        onClick={() => setShowTransferModal(true)}
+                        className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors flex items-center gap-2 font-medium shadow-md"
+                    >
+                        <span className="text-xl font-bold">⇄</span>
+                        Bank Transfer
+                    </button>
+                    <button
+                        onClick={() => setShowModal(true)}
+                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 font-medium shadow-md"
+                    >
+                        <span className="text-xl font-bold">+</span>
+                        Add Bank
+                    </button>
+                </div>
             </div>
 
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
@@ -242,6 +364,16 @@ const BankDetails = () => {
                         </form>
                     </div>
                 </div>
+            )}
+            {showTransferModal && (
+                <TransferModal
+                    banks={banks}
+                    onClose={() => setShowTransferModal(false)}
+                    onSuccess={() => {
+                        setShowTransferModal(false);
+                        fetchBanks();
+                    }}
+                />
             )}
         </div>
     );

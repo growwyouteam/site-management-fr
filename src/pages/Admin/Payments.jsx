@@ -348,6 +348,33 @@ const Payments = () => {
         setShowModal(true);
     };
 
+    const handleDelete = async (transaction) => {
+        if (!confirm('Are you sure you want to delete this entry?')) return;
+
+        try {
+            let endpoint = '';
+            const { _id, refModel } = transaction;
+
+            if (refModel === 'Transaction') endpoint = `/admin/accounts/transaction/${_id}`;
+            else if (refModel === 'VendorPayment') endpoint = `/admin/vendors/payments/${_id}`;
+            else if (refModel === 'ContractorPayment') endpoint = `/admin/contractors/payments/${_id}`;
+            else if (refModel === 'Expense') endpoint = `/admin/expenses/${_id}`;
+            else {
+                // Determine by category if refModel is missing (fallback)
+                return showToast('Deletion not supported for this entry type', 'error');
+            }
+
+            const res = await optimizedApi.delete(endpoint);
+            if (res.data.success) {
+                showToast('Entry deleted successfully', 'success');
+                fetchInitialData();
+            }
+        } catch (error) {
+            console.error('Delete error:', error);
+            showToast(error.response?.data?.error || 'Failed to delete entry', 'error');
+        }
+    };
+
     const renderVendorTable = () => (
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-x-auto">
             <table className="w-full">
@@ -475,6 +502,8 @@ const Payments = () => {
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Mode</th>
                             <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Paid By</th>
+                            <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200">
@@ -502,6 +531,18 @@ const Payments = () => {
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900 text-right">
                                         ₹{t.amount?.toLocaleString()}
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                        {t.source || '-'}
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                        <button
+                                            onClick={() => handleDelete(t)}
+                                            className="text-red-600 hover:text-red-900 transition-colors p-2 rounded-full hover:bg-red-50"
+                                            title="Delete Entry"
+                                        >
+                                            🗑️
+                                        </button>
                                     </td>
                                 </tr>
                             ))

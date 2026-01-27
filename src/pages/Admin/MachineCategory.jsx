@@ -12,6 +12,8 @@ const MachineCategory = () => {
   const [showForm, setShowForm] = useState(false);
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
+  const [itemNames, setItemNames] = useState([]); // Store item names for dropdown
+  const [loadingItemNames, setLoadingItemNames] = useState(false);
   const [selectedMachine, setSelectedMachine] = useState(null);
   const [assignProjectId, setAssignProjectId] = useState('');
   const [assignToContractor, setAssignToContractor] = useState(false);
@@ -33,12 +35,29 @@ const MachineCategory = () => {
   });
   const [editingMachine, setEditingMachine] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [selectedFile, setSelectedFile] = useState(null);
 
   useEffect(() => {
     fetchMachines();
     fetchProjects();
     fetchContractors();
+    fetchItemNames(); // Fetch item names when category changes
   }, [category]);
+
+  const fetchItemNames = async () => {
+    try {
+      setLoadingItemNames(true);
+      const response = await api.get(`/admin/item-names?category=${category}`);
+      if (response.data.success) {
+        setItemNames(response.data.data);
+      }
+    } catch (error) {
+      console.error('Error fetching item names:', error);
+      showToast('Failed to load item names', 'error');
+    } finally {
+      setLoadingItemNames(false);
+    }
+  };
 
   const fetchMachines = async () => {
     try {
@@ -108,18 +127,35 @@ const MachineCategory = () => {
 
     setIsSubmitting(true);
     try {
-      const newMachine = {
-        ...formData,
-        category,
-        quantity: isConsumable ? formData.quantity : Number(formData.quantity) || 1,
-        status: isConsumable ? 'available' : formData.status
-      };
+      const data = new FormData();
+      Object.keys(formData).forEach(key => {
+        if (key === 'quantity') {
+          data.append(key, isConsumable ? formData.quantity : Number(formData.quantity) || 1);
+        } else if (key === 'machinePhoto' || key === 'status') {
+          // Skip adding machinePhoto and status here, we handle them below
+        } else {
+          data.append(key, formData[key]);
+        }
+      });
 
-      const response = await api.post('/admin/machines', newMachine);
+      data.append('category', category);
+      data.append('status', isConsumable ? 'available' : formData.status);
+
+      if (selectedFile) {
+        data.append('photo', selectedFile);
+      } else if (formData.machinePhoto) {
+        data.append('machinePhoto', formData.machinePhoto);
+      }
+
+      const response = await api.post('/admin/machines', data, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+
       if (response.data.success) {
         showToast(`${isConsumable ? 'Consumable item' : isEquipment ? 'Equipment' : 'Machine'} added successfully`, 'success');
         setShowForm(false);
         setFormData({ name: '', model: '', plateNumber: '', quantity: '', status: 'available', ownershipType: 'own', vendorName: '', machineCategory: '', machinePhoto: '', perDayExpense: 0, projectId: '' });
+        setSelectedFile(null);
         fetchMachines();
       }
     } catch (error) {
@@ -147,6 +183,7 @@ const MachineCategory = () => {
       perDayExpense: machine.perDayExpense || 0,
       projectId: machine.projectId?._id || machine.projectId || ''
     });
+    setSelectedFile(null); // Reset selected file on edit init
     setShowForm(true);
   };
 
@@ -160,19 +197,41 @@ const MachineCategory = () => {
 
     setIsSubmitting(true);
     try {
-      const updatedMachine = {
-        ...formData,
-        category,
-        quantity: isConsumable ? formData.quantity : Number(formData.quantity) || 1,
-        status: isConsumable ? 'available' : formData.status
-      };
+      const data = new FormData();
+      Object.keys(formData).forEach(key => {
+        if (key === 'quantity') {
+          data.append(key, isConsumable ? formData.quantity : Number(formData.quantity) || 1);
+        } else if (key === 'machinePhoto' || key === 'status') {
+          // Skip adding machinePhoto and status here, we handle them below
+        } else {
+          data.append(key, formData[key]);
+        }
+      });
 
-      const response = await api.put(`/admin/machines/${editingMachine._id}`, updatedMachine);
+      data.append('category', category);
+      data.append('status', isConsumable ? 'available' : formData.status);
+
+      if (selectedFile) {
+        data.append('machinePhoto', selectedFile);
+      } else if (formData.machinePhoto) {
+        // If it's an existing URL, send it. If it's "data:...", we probably shouldn't send it if we rely on selectedFile,
+        // but if selectedFile is null and we have data URI, maybe we should just clear it or handle it.
+        // Assuming formData.machinePhoto is URL if it's from existing machine.
+        if (!formData.machinePhoto.startsWith('data:')) {
+          data.append('machinePhoto', formData.machinePhoto);
+        }
+      }
+
+      const response = await api.put(`/admin/machines/${editingMachine._id}`, data, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+
       if (response.data.success) {
         showToast(`${isConsumable ? 'Consumable item' : isEquipment ? 'Equipment' : 'Machine'} updated successfully`, 'success');
         setShowForm(false);
         setEditingMachine(null);
         setFormData({ name: '', model: '', plateNumber: '', quantity: '', status: 'available', ownershipType: 'own', vendorName: '', machineCategory: '', machinePhoto: '', perDayExpense: 0, projectId: '' });
+        setSelectedFile(null);
         fetchMachines();
       }
     } catch (error) {
@@ -284,9 +343,10 @@ const MachineCategory = () => {
 
   const handlePhotoUpload = (file) => {
     if (!file) return;
+    setSelectedFile(file); // Store file for upload
     const reader = new FileReader();
     reader.onload = () => {
-      setFormData(prev => ({ ...prev, machinePhoto: reader.result }));
+      setFormData(prev => ({ ...prev, machinePhoto: reader.result })); // Store preview
     };
     reader.readAsDataURL(file);
   };
@@ -326,19 +386,26 @@ const MachineCategory = () => {
       {showForm && (
         <form onSubmit={editingMachine ? handleUpdate : handleSubmit} className="mt-5 bg-white p-4 md:p-6 rounded-lg shadow-sm border border-gray-200">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Equipment Name */}
+            {/* Equipment Name - Changed to Dropdown */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 {isConsumable ? 'Item Name' : isEquipment ? 'Equipment Name' : isLabEquipment ? 'Equipment Name' : 'Machine Name'}
               </label>
-              <input
-                type="text"
-                placeholder={isConsumable ? "e.g., Cement, Steel Rods" : isEquipment ? "e.g., Drill Machine, Hammer" : isLabEquipment ? "e.g., Concrete Tester" : "e.g., JCB, Crane"}
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                required
-                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
+              {loadingItemNames ? (
+                <div className="text-sm text-gray-500">Loading names...</div>
+              ) : (
+                <select
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  required
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">Select Name</option>
+                  {itemNames.map(item => (
+                    <option key={item._id} value={item.name}>{item.name}</option>
+                  ))}
+                </select>
+              )}
             </div>
 
             {/* Ownership Type - Show for Equipment and Big Machines, not for Lab or Consumables */}
@@ -495,7 +562,7 @@ const MachineCategory = () => {
             )}
 
             {/* Project Dropdown */}
-            <div>
+            {/* <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Assign to Project (Optional)</label>
               <select
                 value={formData.projectId}
@@ -507,7 +574,7 @@ const MachineCategory = () => {
                   <option key={p._id} value={p._id}>{p.name}</option>
                 ))}
               </select>
-            </div>
+            </div> */}
           </div>
           <button
             type="submit"

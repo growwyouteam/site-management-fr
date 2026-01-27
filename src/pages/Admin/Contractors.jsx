@@ -203,6 +203,24 @@ const Contractors = () => {
         setShowForm(true);
     };
 
+    const handleStatusToggle = async (contractor) => {
+        const newStatus = contractor.status === 'active' ? 'inactive' : 'active';
+        try {
+            const response = await api.put(`/admin/contractors/${contractor._id}`, {
+                ...contractor,
+                assignedProjects: contractor.assignedProjects?.map(p => p._id), // extract IDs
+                status: newStatus
+            });
+            if (response.data.success) {
+                showToast(`Contractor is now ${newStatus}`, 'success');
+                fetchContractors();
+            }
+        } catch (error) {
+            showToast('Failed to update status', 'error');
+            console.error('Error updating status:', error);
+        }
+    };
+
     const handleDelete = async (id) => {
         if (!confirm('Delete this contractor?')) return;
         try {
@@ -489,6 +507,8 @@ const Contractors = () => {
                             className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                         >
                             <option value="pending">Pending</option>
+                            <option value="active">Active</option>
+                            <option value="inactive">Inactive</option>
                             <option value="complete">Complete</option>
                         </select>
                     </div>
@@ -602,9 +622,17 @@ const Contractors = () => {
                                     <td className="px-4 py-3">{contractor.distanceValue} {contractor.distanceUnit}</td>
                                     <td className="px-4 py-3">₹{contractor.expensePerUnit}/{contractor.distanceUnit}</td>
                                     <td className="px-4 py-3">
-                                        <span className={`px-2 py-1 text-xs rounded-full ${contractor.status === 'complete' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
-                                            {contractor.status ? contractor.status.charAt(0).toUpperCase() + contractor.status.slice(1) : 'Pending'}
-                                        </span>
+                                        <button
+                                            onClick={() => handleStatusToggle(contractor)}
+                                            className={`px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wide transition-colors ${contractor.status === 'active'
+                                                ? 'bg-green-100 text-green-800 hover:bg-green-200'
+                                                : contractor.status === 'inactive'
+                                                    ? 'bg-red-100 text-red-800 hover:bg-red-200'
+                                                    : 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200'
+                                                }`}
+                                        >
+                                            {contractor.status || 'Pending'}
+                                        </button>
                                     </td>
                                     <td className="px-4 py-3">
                                         <span className="text-blue-600 font-semibold">₹{contractorStats[contractor._id]?.totalPayable?.toLocaleString() || 0}</span>
@@ -634,13 +662,13 @@ const Contractors = () => {
                                             >
                                                 ✏️
                                             </button>
-                                            <button
+                                            {/* <button
                                                 onClick={() => handlePayment(contractor)}
                                                 className="px-3 py-1.5 bg-green-500 text-white rounded text-sm hover:bg-green-600"
                                                 title="Payment"
                                             >
                                                 💰
-                                            </button>
+                                            </button> */}
                                         </div>
                                     </td>
                                 </tr>

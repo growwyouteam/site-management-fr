@@ -138,11 +138,15 @@ const AddTransactionModal = ({ type, onClose, onSuccess, banks }) => {
       // admin/routes has router.post('/accounts/transaction', addTransaction);
       // router.post('/accounts/capital', addCapital);
 
+      // Combine selected date with current time
+      const selectedDate = new Date(formData.date);
+      const now = new Date();
+      selectedDate.setHours(now.getHours(), now.getMinutes(), now.getSeconds());
+
       const res = await optimizedApi.post(endpoint, {
         ...formData,
-        category: formData.category, // Allow user override?
-        ...formData,
-        category: formData.category, // Allow user override?
+        date: selectedDate.toISOString(), // Send full ISO string with time
+        category: formData.category,
         type: formData.type,
         creditorId: formData.creditorId || undefined
       });
@@ -778,7 +782,8 @@ const Accounts = () => {
       filtered = filtered.filter(t => t.paymentMode === 'cash');
     }
 
-    return filtered;
+    // Sort by date descending (Newest First)
+    return filtered.sort((a, b) => new Date(b.date) - new Date(a.date));
   };
 
   return (
