@@ -4,7 +4,7 @@ const Machines = () => {
   const categories = [
     { id: 'big', name: 'Big Machines' },
     { id: 'lab', name: 'Lab Test Equipment' },
-    { id: 'consumables', name: 'Consumable Goods' },
+    // { id: 'consumables', name: 'Consumable Goods' },
     { id: 'equipment', name: 'Equipment' }
   ];
 

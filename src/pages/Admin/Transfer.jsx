@@ -54,7 +54,7 @@ const Transfer = () => {
         // Handle both populated object and direct ID
         filtered = allMachines.filter(m => {
           const projId = typeof m.projectId === 'object' ? m.projectId?._id : m.projectId;
-          return projId === pid && m.status !== 'in-use';
+          return projId === pid;
         });
         break;
       case 'stock':
@@ -68,7 +68,7 @@ const Transfer = () => {
         // Handle both populated object and direct ID
         filtered = allLabEquipments.filter(e => {
           const projId = typeof e.projectId === 'object' ? e.projectId?._id : e.projectId;
-          return projId === pid && e.status !== 'in-use';
+          return projId === pid;
         });
         break;
       case 'consumable-goods':
@@ -82,7 +82,7 @@ const Transfer = () => {
         // Handle both populated object and direct ID
         filtered = allEquipments.filter(e => {
           const projId = typeof e.projectId === 'object' ? e.projectId?._id : e.projectId;
-          return projId === pid && e.status !== 'in-use';
+          return projId === pid;
         });
         break;
       default:

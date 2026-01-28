@@ -439,13 +439,13 @@ const Vendors = () => {
                       >
                         👁️
                       </button>
-                      <button
+                      {/* <button
                         onClick={() => { setSelectedVendor(v); setShowPaymentModal(true); }}
                         className="px-3 py-1.5 bg-green-500 text-white rounded text-sm hover:bg-green-600"
                         title="Record Payment"
                       >
                         💰
-                      </button>
+                      </button> */}
                       <button
                         onClick={() => handleEdit(v)}
                         className="px-3 py-1.5 bg-yellow-500 text-white rounded text-sm hover:bg-yellow-600"

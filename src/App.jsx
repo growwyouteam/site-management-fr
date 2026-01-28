@@ -48,6 +48,7 @@ const DailyReport = lazy(() => import('./pages/SiteManager/DailyReport'));
 const Gallery = lazy(() => import('./pages/SiteManager/Gallery'));
 const SMExpenses = lazy(() => import('./pages/SiteManager/SMExpenses'));
 const Payment = lazy(() => import('./pages/SiteManager/Payment'));
+const SMMachines = lazy(() => import('./pages/SiteManager/SMMachines'));
 const SMNotifications = lazy(() => import('./pages/SiteManager/SMNotifications'));
 const Profile = lazy(() => import('./pages/SiteManager/Profile'));
 
@@ -165,6 +166,7 @@ const AppRoutes = () => {
             <Route path="/site/gallery" element={<Gallery />} />
             <Route path="/site/expenses" element={<SMExpenses />} />
             <Route path="/site/payment" element={<Payment />} />
+            <Route path="/site/machines" element={<SMMachines />} />
             <Route path="/site/notifications" element={<SMNotifications />} />
             <Route path="/site/profile" element={<Profile />} />
             <Route path="*" element={<Navigate to="/site" replace />} />

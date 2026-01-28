@@ -287,7 +287,7 @@ const Payment = () => {
                 <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Amount</th>
                 <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Deduction</th>
                 <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Advance</th>
-                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Final Amount</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Remaining Amount</th>
                 <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Total Paid</th>
                 <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Mode</th>
                 <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Date</th>

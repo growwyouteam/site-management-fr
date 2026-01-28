@@ -201,18 +201,27 @@ const MachineCategory = () => {
       Object.keys(formData).forEach(key => {
         if (key === 'quantity') {
           data.append(key, isConsumable ? formData.quantity : Number(formData.quantity) || 1);
-        } else if (key === 'machinePhoto' || key === 'status') {
-          // Skip adding machinePhoto and status here, we handle them below
+        } else if (key === 'machinePhoto' || key === 'status' || key === 'projectId') {
+          // Skip adding machinePhoto, status, and projectId here, we handle them below
         } else {
           data.append(key, formData[key]);
         }
       });
 
       data.append('category', category);
-      data.append('status', isConsumable ? 'available' : formData.status);
+      const finalStatus = isConsumable ? 'available' : formData.status;
+      data.append('status', finalStatus);
+
+      // If status is available, clear projectId/contractor assignment
+      // If status is available, clear projectId/contractor assignment
+      if (finalStatus === 'available') {
+        data.append('projectId', '');
+      } else {
+        data.append('projectId', formData.projectId || '');
+      }
 
       if (selectedFile) {
-        data.append('machinePhoto', selectedFile);
+        data.append('photo', selectedFile);
       } else if (formData.machinePhoto) {
         // If it's an existing URL, send it. If it's "data:...", we probably shouldn't send it if we rely on selectedFile,
         // but if selectedFile is null and we have data URI, maybe we should just clear it or handle it.

@@ -162,6 +162,7 @@ const StockIn = () => {
       if (formData.remarks) {
         submitData.append('remarks', formData.remarks);
       }
+      submitData.append('paymentStatus', formData.paymentStatus || 'credit');
 
       const response = await api.post('/site/stock-in', submitData, {
         headers: { 'Content-Type': 'multipart/form-data' }
@@ -371,6 +372,18 @@ const StockIn = () => {
             <div className="w-full px-4 py-2.5 border border-gray-200 bg-gray-50 rounded-lg text-gray-800 font-semibold">
               ₹{((Number(formData.quantity) || 0) * (Number(formData.unitPrice) || 0)).toLocaleString()}
             </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Payment Status</label>
+            <select
+              value={formData.paymentStatus || 'credit'}
+              onChange={(e) => setFormData({ ...formData, paymentStatus: e.target.value })}
+              className={`w-full px-4 py-2.5 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${formData.paymentStatus === 'paid' ? 'border-green-500 bg-green-50 text-green-700' : 'border-gray-300'}`}
+              disabled={isSubmitting}
+            >
+              <option value="credit">Credit (Vendor Pending)</option>
+              <option value="paid">Paid from Wallet</option>
+            </select>
           </div>
           <div className="md:col-span-2 lg:col-span-3">
             <label className="block text-sm font-medium text-gray-700 mb-2">Photo *</label>

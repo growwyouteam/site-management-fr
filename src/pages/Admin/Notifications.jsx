@@ -6,7 +6,7 @@ const Notifications = () => {
   const [notifications, setNotifications] = useState([]);
   const [users, setUsers] = useState([]);
   const [showForm, setShowForm] = useState(false);
-  const [formData, setFormData] = useState({ recipientId: '', message: '', type: 'general' });
+  const [formData, setFormData] = useState({ recipientId: '', title: '', message: '', type: 'general' });
 
   useEffect(() => {
     fetchData();
@@ -41,7 +41,7 @@ const Notifications = () => {
       if (response.data.success) {
         showToast('Notification sent successfully', 'success');
         setShowForm(false);
-        setFormData({ recipientId: users[0]?._id || '', message: '', type: 'general' });
+        setFormData({ recipientId: users[0]?._id || '', title: '', message: '', type: 'general' });
         fetchData();
       }
     } catch (error) {
@@ -72,6 +72,17 @@ const Notifications = () => {
               <option value="">Broadcast to All Site Managers</option>
               {users.map(u => <option key={u._id} value={u._id}>{u.name}</option>)}
             </select>
+          </div>
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-2">Title</label>
+            <input
+              type="text"
+              placeholder="Notification Title"
+              value={formData.title}
+              onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+              required
+              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
           </div>
           <div className="mb-4">
             <label className="block text-sm font-medium text-gray-700 mb-2">Message</label>
@@ -107,9 +118,12 @@ const Notifications = () => {
           {notifications.map(n => (
             <div key={n._id} className="p-4 border-b border-gray-200 last:border-b-0 flex flex-col md:flex-row md:justify-between md:items-start gap-3">
               <div className="flex-1">
-                <p className="font-semibold text-gray-900 mb-2">{n.message}</p>
+                <p className="font-semibold text-gray-900 mb-1">{n.title}</p>
+                <p className="text-gray-800 mb-2">{n.message}</p>
                 <p className="text-sm text-gray-600">
-                  <span className="font-medium">To:</span> {n.recipientId ? users.find(u => u.id === n.recipientId)?.name : 'All Site Managers'}
+                  <span className="font-medium">To:</span> {n.recipient ? (users.find(u => u._id === n.recipient) || users.find(u => u._id === n.recipient._id))?.name || 'Me' : 'All Site Managers'}
+                  {' | '}
+                  <span className="font-medium">From:</span> {n.relatedModel === 'User' ? (n.relatedId?.name || 'Admin') : 'System'}
                   {' | '}
                   <span className="font-medium">Type:</span> <span className="capitalize">{n.type}</span>
                   {' | '}

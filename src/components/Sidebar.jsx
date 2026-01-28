@@ -43,6 +43,7 @@ const Sidebar = () => {
     { path: '/site/gallery', label: 'Gallery', icon: '📷' },
     { path: '/site/expenses', label: 'Expenses', icon: '💰' },
     { path: '/site/payment', label: 'Payment', icon: '💵' },
+    { path: '/site/machines', label: 'Machines', icon: '🚜' },
     { path: '/site/notifications', label: 'Notifications', icon: '🔔' },
     { path: '/site/profile', label: 'Profile', icon: '👤' }
   ];
