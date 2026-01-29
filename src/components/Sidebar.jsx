@@ -1,11 +1,35 @@
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 const Sidebar = () => {
   const location = useLocation();
   const { user } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
+  const [deferredPrompt, setDeferredPrompt] = useState(null);
+
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (e) => {
+      // Prevent the mini-infobar from appearing on mobile
+      e.preventDefault();
+      // Stash the event so it can be triggered later.
+      setDeferredPrompt(e);
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    };
+  }, []);
+
+  const handleInstallClick = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    console.log(`User response to the install prompt: ${outcome}`);
+    setDeferredPrompt(null);
+  };
 
   const isActive = (path) => {
     return location.pathname === path || location.pathname.startsWith(path + '/');
@@ -115,7 +139,7 @@ const Sidebar = () => {
         </nav>
 
         {/* User Info at Bottom */}
-        <div className="relatable bottom-0 left-0 right-0 p-5 border-t border-border-light bg-black bg-opacity-20">
+        <div className="relatable bottom-0 left-0 right-0 p-4 border-t border-border-light bg-black bg-opacity-20">
           <div className={`flex items-center gap-3 ${!isOpen && 'md:justify-center'}`}>
             <div className="w-9 h-9 rounded-full bg-primary flex items-center justify-center text-dark-darker font-semibold text-sm flex-shrink-0">
               {user?.name?.charAt(0).toUpperCase()}
@@ -129,6 +153,17 @@ const Sidebar = () => {
               </p>
             </div>
           </div>
+
+          {/* Install PWA Button */}
+          {deferredPrompt && (
+            <button
+              onClick={handleInstallClick}
+              className={`mt-4 w-full flex items-center justify-center gap-2 bg-primary text-dark-darker py-2 rounded-lg text-sm font-bold hover:bg-opacity-90 transition-colors ${!isOpen && 'md:hidden'}`}
+            >
+              <span>⬇️</span>
+              <span className={`${isOpen ? 'block' : 'hidden lg:block'}`}>Install App</span>
+            </button>
+          )}
         </div>
       </div>
     </>
