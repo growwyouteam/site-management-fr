@@ -103,7 +103,7 @@ const SMDashboard = () => {
           <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Site Manager Dashboard</h1>
           <p className="text-gray-600 mt-2">Welcome, {data?.user?.name}</p>
         </div>
-        <div className="flex gap-2">
+        {/* <div className="flex gap-2">
           <button
             onClick={runDebug}
             disabled={debugMode}
@@ -117,13 +117,13 @@ const SMDashboard = () => {
           >
             🔄 Refresh
           </button>
-        </div>
+        </div> */}
       </div>
 
       <div className="mt-6 mb-6">
         <div className={`relative overflow-hidden rounded-2xl shadow-lg p-6 sm:p-8 transition-all ${(data?.user?.walletBalance || 0) < 0
-            ? 'bg-gradient-to-br from-red-600 to-red-800'
-            : 'bg-gradient-to-br from-indigo-600 to-blue-700'
+          ? 'bg-gradient-to-br from-red-600 to-red-800'
+          : 'bg-gradient-to-br from-indigo-600 to-blue-700'
           } text-white`}>
           <div className="relative z-10 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div>

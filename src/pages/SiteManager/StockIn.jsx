@@ -261,13 +261,13 @@ const StockIn = () => {
     <div className="p-4 md:p-6 lg:p-8 max-w-7xl mx-auto">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Stock In (Material Receipt)</h1>
-        <button
+        {/* <button
           onClick={runDebug}
           disabled={debugMode}
           className="px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors flex items-center gap-2 disabled:opacity-50"
         >
           🔍 {debugMode ? 'Debugging...' : 'Debug'}
-        </button>
+        </button> */}
       </div>
 
       {/* Show warning if no projects assigned */}
