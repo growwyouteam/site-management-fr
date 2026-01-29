@@ -56,62 +56,114 @@ const SMMachines = () => {
                     <p className="text-gray-500 text-lg">No machines assigned to this site.</p>
                 </div>
             ) : (
-                <div className="bg-white rounded-lg shadow-md overflow-x-auto">
-                    <table className="min-w-full leading-normal">
-                        <thead>
-                            <tr>
-                                <th className="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                                    Machine Name
-                                </th>
-                                <th className="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                                    Plate Number
-                                </th>
-                                <th className="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                                    Ownership
-                                </th>
-                                <th className="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                                    Rental Details
-                                </th>
-                                <th className="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                                    Status
-                                </th>
-                                <th className="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                                    Action
-                                </th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {machines.map((machine) => (
-                                <tr key={machine._id}>
-                                    <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm">
-                                        <p className="text-gray-900 whitespace-no-wrap font-semibold">{machine.name}</p>
-                                    </td>
-                                    <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm">
-                                        <p className="text-gray-900 whitespace-no-wrap">{machine.plateNumber || 'N/A'}</p>
-                                    </td>
-                                    <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm">
-                                        <span className="capitalize px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
-                                            {machine.ownershipType}
-                                        </span>
-                                    </td>
-                                    <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm">
-                                        {(machine.ownershipType === 'rented' || machine.assignedAsRental) ? (
-                                            <div>
-                                                <p className="text-gray-900 whitespace-no-wrap">
-                                                    ₹{machine.assignedRentalPerDay}/{machine.rentalType === 'perHour' ? 'hr' : 'day'}
+                <div>
+                    {/* Desktop View */}
+                    <div className="hidden md:block bg-white rounded-lg shadow-md overflow-x-auto">
+                        <table className="min-w-full leading-normal">
+                            <thead>
+                                <tr>
+                                    <th className="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                                        Machine Name
+                                    </th>
+                                    <th className="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                                        Plate Number
+                                    </th>
+                                    <th className="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                                        Ownership
+                                    </th>
+                                    <th className="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                                        Rental Details
+                                    </th>
+                                    <th className="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                                        Status
+                                    </th>
+                                    <th className="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                                        Action
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {machines.map((machine) => (
+                                    <tr key={machine._id}>
+                                        <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm">
+                                            <p className="text-gray-900 whitespace-no-wrap font-semibold">{machine.name}</p>
+                                        </td>
+                                        <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm">
+                                            <p className="text-gray-900 whitespace-no-wrap">{machine.plateNumber || 'N/A'}</p>
+                                        </td>
+                                        <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm">
+                                            <span className="capitalize px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
+                                                {machine.ownershipType}
+                                            </span>
+                                        </td>
+                                        <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm">
+                                            {(machine.ownershipType === 'rented' || machine.assignedAsRental) ? (
+                                                <div>
+                                                    <p className="text-gray-900 whitespace-no-wrap">
+                                                        ₹{machine.assignedRentalPerDay}/{machine.rentalType === 'perHour' ? 'hr' : 'day'}
+                                                    </p>
+                                                    <p className="text-gray-500 text-xs">
+                                                        {machine.ownershipType === 'rented'
+                                                            ? `Vendor: ${machine.vendorName || 'N/A'}`
+                                                            : `Contractor: ${machine.assignedToContractor?.name || 'Assigned'}`
+                                                        }
+                                                    </p>
+                                                </div>
+                                            ) : (
+                                                <span className="text-gray-500">-</span>
+                                            )}
+                                        </td>
+                                        <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm">
+                                            <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                            ${machine.isRentPaused ? 'bg-orange-100 text-orange-800' :
+                                                    machine.status === 'in-use' ? 'bg-green-100 text-green-800' :
+                                                        'bg-gray-100 text-gray-800'
+                                                }`}>
+                                                {machine.isRentPaused ? 'Rent Paused' :
+                                                    machine.status === 'in-use' ? 'In Use' : machine.status}
+                                            </span>
+                                            {machine.isRentPaused && machine.rentPausedAt && (
+                                                <p className="text-xs text-orange-600 mt-1">
+                                                    Since: {new Date(machine.rentPausedAt).toLocaleDateString()}
                                                 </p>
-                                                <p className="text-gray-500 text-xs">
-                                                    {machine.ownershipType === 'rented'
-                                                        ? `Vendor: ${machine.vendorName || 'N/A'}`
-                                                        : `Contractor: ${machine.assignedToContractor?.name || 'Assigned'}`
-                                                    }
-                                                </p>
-                                            </div>
-                                        ) : (
-                                            <span className="text-gray-500">-</span>
-                                        )}
-                                    </td>
-                                    <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm">
+                                            )}
+                                        </td>
+                                        <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm">
+                                            {(machine.ownershipType === 'rented' || machine.assignedAsRental) && (
+                                                <button
+                                                    onClick={() => handleRentPauseToggle(machine)}
+                                                    className={`px-3 py-1 rounded text-sm font-medium transition-colors
+                                                    ${machine.isRentPaused
+                                                            ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                                                            : 'bg-orange-100 text-orange-700 hover:bg-orange-200'
+                                                        }`}
+                                                >
+                                                    {machine.isRentPaused ? 'Resume Rent' : 'Pause Rent'}
+                                                </button>
+                                            )}
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    {/* Mobile View */}
+                    <div className="md:hidden space-y-4">
+                        {machines.map((machine) => (
+                            <div key={machine._id} className="bg-white p-4 rounded-lg shadow border border-gray-200">
+                                <div className="flex justify-between items-start mb-2">
+                                    <div>
+                                        <h3 className="font-bold text-gray-900 text-lg">{machine.name}</h3>
+                                        <p className="text-sm text-gray-500">{machine.plateNumber || 'N/A'}</p>
+                                    </div>
+                                    <span className="capitalize px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
+                                        {machine.ownershipType}
+                                    </span>
+                                </div>
+                                <div className="space-y-2 mb-3">
+                                    <div className="flex justify-between text-sm">
+                                        <span className="text-gray-600">Status:</span>
                                         <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
                                             ${machine.isRentPaused ? 'bg-orange-100 text-orange-800' :
                                                 machine.status === 'in-use' ? 'bg-green-100 text-green-800' :
@@ -120,30 +172,31 @@ const SMMachines = () => {
                                             {machine.isRentPaused ? 'Rent Paused' :
                                                 machine.status === 'in-use' ? 'In Use' : machine.status}
                                         </span>
-                                        {machine.isRentPaused && machine.rentPausedAt && (
-                                            <p className="text-xs text-orange-600 mt-1">
-                                                Since: {new Date(machine.rentPausedAt).toLocaleDateString()}
-                                            </p>
-                                        )}
-                                    </td>
-                                    <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm">
-                                        {(machine.ownershipType === 'rented' || machine.assignedAsRental) && (
-                                            <button
-                                                onClick={() => handleRentPauseToggle(machine)}
-                                                className={`px-3 py-1 rounded text-sm font-medium transition-colors
-                                                    ${machine.isRentPaused
-                                                        ? 'bg-green-100 text-green-700 hover:bg-green-200'
-                                                        : 'bg-orange-100 text-orange-700 hover:bg-orange-200'
-                                                    }`}
-                                            >
-                                                {machine.isRentPaused ? 'Resume Rent' : 'Pause Rent'}
-                                            </button>
-                                        )}
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
+                                    </div>
+                                    {(machine.ownershipType === 'rented' || machine.assignedAsRental) && (
+                                        <div className="flex justify-between text-sm">
+                                            <span className="text-gray-600">Rate:</span>
+                                            <span className="font-semibold text-gray-900">
+                                                ₹{machine.assignedRentalPerDay}/{machine.rentalType === 'perHour' ? 'hr' : 'day'}
+                                            </span>
+                                        </div>
+                                    )}
+                                </div>
+                                {(machine.ownershipType === 'rented' || machine.assignedAsRental) && (
+                                    <button
+                                        onClick={() => handleRentPauseToggle(machine)}
+                                        className={`w-full py-2 rounded-lg text-sm font-bold transition-colors
+                                            ${machine.isRentPaused
+                                                ? 'bg-green-500 text-white hover:bg-green-600'
+                                                : 'bg-orange-500 text-white hover:bg-orange-600'
+                                            }`}
+                                    >
+                                        {machine.isRentPaused ? 'Resume Rent' : 'Pause Rent'}
+                                    </button>
+                                )}
+                            </div>
+                        ))}
+                    </div>
                 </div>
             )}
         </div>

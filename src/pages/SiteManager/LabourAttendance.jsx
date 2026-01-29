@@ -180,7 +180,8 @@ const LabourAttendance = () => {
           <p className="text-gray-500 text-sm">No attendance records yet.</p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            {/* Desktop Table View */}
+            <table className="hidden md:table w-full text-sm">
               <thead>
                 <tr className="border-b-2 border-gray-200">
                   <th className="px-4 py-2 text-left font-semibold text-gray-700">Date</th>
@@ -193,17 +194,17 @@ const LabourAttendance = () => {
               </thead>
               <tbody>
                 {attendance.map(a => (
-                  <tr key={a._id} className="border-b border-gray-100 animate-fadeIn">
-                    <td className="px-4 py-2">{a.date}</td>
-                    <td className="px-4 py-2 font-medium">{a.labourName}</td>
-                    <td className="px-4 py-2">{typeof a.projectId === 'object' ? a.projectId?.name : a.projectId}</td>
-                    <td className="px-4 py-2 capitalize">
+                  <tr key={a._id} className="border-b border-gray-100 animate-fadeIn hover:bg-gray-50">
+                    <td className="px-4 py-3">{new Date(a.date).toLocaleDateString()}</td>
+                    <td className="px-4 py-3 font-medium">{a.labourName}</td>
+                    <td className="px-4 py-3">{typeof a.projectId === 'object' ? a.projectId?.name : a.projectId}</td>
+                    <td className="px-4 py-3 capitalize">
                       <span className={`px-2 py-0.5 rounded text-xs font-semibold ${a.status === 'absent' ? 'bg-red-100 text-red-700' : a.status === 'half' ? 'bg-yellow-100 text-yellow-700' : 'bg-green-100 text-green-700'}`}>
                         {a.status || 'present'}
                       </span>
                     </td>
-                    <td className="px-4 py-2 text-gray-500">{new Date(a.time || a.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
-                    <td className="px-4 py-2">
+                    <td className="px-4 py-3 text-gray-500">{new Date(a.time || a.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
+                    <td className="px-4 py-3">
                       <button
                         onClick={() => handleEditLoad(a)}
                         className="px-3 py-1.5 bg-blue-500 text-white rounded text-xs font-semibold hover:bg-blue-600"
@@ -215,6 +216,35 @@ const LabourAttendance = () => {
                 ))}
               </tbody>
             </table>
+
+            {/* Mobile Card View */}
+            <div className="md:hidden space-y-4">
+              {attendance.map(a => (
+                <div key={a._id} className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                  <div className="flex justify-between items-start mb-2">
+                    <div>
+                      <p className="font-bold text-gray-900">{a.labourName}</p>
+                      <p className="text-xs text-gray-500">{typeof a.projectId === 'object' ? a.projectId?.name : a.projectId}</p>
+                    </div>
+                    <span className={`px-2 py-1 rounded text-xs font-semibold capitalize ${a.status === 'absent' ? 'bg-red-100 text-red-700' : a.status === 'half' ? 'bg-yellow-100 text-yellow-700' : 'bg-green-100 text-green-700'}`}>
+                      {a.status || 'present'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center text-sm text-gray-600 mt-2">
+                    <span>{new Date(a.date).toLocaleDateString()}</span>
+                    <span>{new Date(a.time || a.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                  </div>
+                  <div className="mt-3 text-right">
+                    <button
+                      onClick={() => handleEditLoad(a)}
+                      className="w-full sm:w-auto px-4 py-2 bg-blue-500 text-white rounded text-sm font-semibold hover:bg-blue-600"
+                    >
+                      Edit Status
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </div>

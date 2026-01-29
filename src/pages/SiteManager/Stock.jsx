@@ -176,7 +176,8 @@ const Stock = () => {
             {/* Table */}
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
                 <div className="overflow-x-auto">
-                    <table className="w-full text-sm text-left">
+                    {/* Desktop View */}
+                    <table className="hidden md:table w-full text-sm text-left">
                         <thead className="bg-gray-50 text-gray-700 font-semibold border-b">
                             <tr>
                                 <th className="px-4 py-3">Date</th>
@@ -218,6 +219,43 @@ const Stock = () => {
                             )}
                         </tbody>
                     </table>
+
+                    {/* Mobile Card View */}
+                    <div className="md:hidden">
+                        {movements.length > 0 ? (
+                            <div className="divide-y divide-gray-200">
+                                {movements.map(move => (
+                                    <div key={move._id} className="p-4 bg-white hover:bg-gray-50">
+                                        <div className="flex justify-between items-start mb-2">
+                                            <div className="flex items-center gap-2">
+                                                <span className={`px-2 py-1 rounded text-xs font-bold ${move.type === 'IN' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                                                    {move.type}
+                                                </span>
+                                                <h3 className="font-bold text-gray-900">{move.material}</h3>
+                                            </div>
+                                            <span className="text-sm font-semibold text-gray-900">
+                                                {move.quantity} {move.unit}
+                                            </span>
+                                        </div>
+
+                                        <div className="text-sm text-gray-600 space-y-1 mb-2">
+                                            <p><span className="font-medium">Date:</span> {new Date(move.date).toLocaleDateString()}</p>
+                                            <p><span className="font-medium">Project:</span> {move.project}</p>
+                                            <p>
+                                                <span className="font-medium">{move.type === 'IN' ? 'Vendor:' : 'Used For:'}</span> {' '}
+                                                {move.type === 'IN' ? move.vendor : move.usedFor}
+                                            </p>
+                                            {move.remarks && (
+                                                <p className="text-gray-500 italic">"{move.remarks}"</p>
+                                            )}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="p-8 text-center text-gray-500">No records found</div>
+                        )}
+                    </div>
                 </div>
 
                 {/* Pagination */}
