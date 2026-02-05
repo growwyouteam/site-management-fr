@@ -1,0 +1,490 @@
+import { useState, useEffect } from 'react';
+import { showToast } from '../../components/Toast';
+import { ensureSeedData, getCollection, saveCollection, generateId } from '../../services/storage';
+
+const Contractors = () => {
+    const [contractors, setContractors] = useState([]);
+    const [showForm, setShowForm] = useState(false);
+    const [editingContractor, setEditingContractor] = useState(null);
+    const [showPaymentModal, setShowPaymentModal] = useState(false);
+    const [selectedContractor, setSelectedContractor] = useState(null);
+    const [formData, setFormData] = useState({
+        name: '',
+        mobile: '',
+        address: '',
+        distanceValue: '',
+        distanceUnit: 'km',
+        expensePerUnit: ''
+    });
+    const [paymentData, setPaymentData] = useState({
+        date: new Date().toISOString().split('T')[0],
+        amount: '',
+        remark: '',
+        machineRent: 0
+    });
+
+    useEffect(() => {
+        ensureSeedData();
+        fetchContractors();
+    }, []);
+
+    const fetchContractors = () => {
+        const stored = getCollection('contractors', []);
+        setContractors(stored);
+    };
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        try {
+            const contractorData = {
+                ...formData,
+                distanceValue: Number(formData.distanceValue),
+                expensePerUnit: Number(formData.expensePerUnit)
+            };
+
+            if (editingContractor) {
+                const response = await api.put(`/admin/contractors/${editingContractor._id}`, contractorData);
+                if (response.data.success) {
+                    showToast('Contractor updated successfully', 'success');
+                }
+            } else {
+                const response = await api.post('/admin/contractors', contractorData);
+                if (response.data.success) {
+                    showToast('Contractor created successfully', 'success');
+                }
+            }
+            
+            resetForm();
+            fetchContractors();
+        } catch (error) {
+            showToast(error.response?.data?.error || 'Failed to save contractor', 'error');
+            console.error('Error saving contractor:', error);
+        }
+    };
+
+    const handleEdit = (contractor) => {
+        setEditingContractor(contractor);
+        setFormData({
+            name: contractor.name,
+            mobile: contractor.mobile,
+            address: contractor.address,
+            distanceValue: contractor.distanceValue,
+            distanceUnit: contractor.distanceUnit,
+            expensePerUnit: contractor.expensePerUnit
+        });
+        setShowForm(true);
+    };
+
+    const handleDelete = (id) => {
+        if (!confirm('Delete this contractor?')) return;
+        const updated = getCollection('contractors', []).filter(c => c.id !== id);
+        saveCollection('contractors', updated);
+        showToast('Contractor deleted', 'success');
+        fetchContractors();
+    };
+
+    const handlePayment = (contractor) => {
+        setSelectedContractor(contractor);
+        const machineRent = calculateMachineRent(contractor);
+        setPaymentData({
+            date: new Date().toISOString().split('T')[0],
+            amount: '',
+            remark: '',
+            machineRent
+        });
+        setShowPaymentModal(true);
+    };
+
+    const calculateMachineRent = (contractor) => {
+        const machines = getCollection('machines', []);
+        const assignedMachines = machines.filter(m =>
+            m.assignedToContractor === contractor.id && m.assignedAsRental
+        );
+        return assignedMachines.reduce((total, m) => total + (m.assignedRentalPerDay || 0), 0);
+    };
+
+    const handlePaymentSubmit = (e) => {
+        e.preventDefault();
+        const payment = {
+            id: generateId(),
+            contractorId: selectedContractor.id,
+            contractorName: selectedContractor.name,
+            date: paymentData.date,
+            amount: Number(paymentData.amount),
+            remark: paymentData.remark,
+            machineRent: paymentData.machineRent,
+            createdAt: new Date().toISOString()
+        };
+
+        const allPayments = getCollection('contractorPayments', []);
+        saveCollection('contractorPayments', [...allPayments, payment]);
+
+        showToast('Payment recorded successfully', 'success');
+        setShowPaymentModal(false);
+        setSelectedContractor(null);
+        setPaymentData({ date: new Date().toISOString().split('T')[0], amount: '', remark: '', machineRent: 0 });
+    };
+
+    const resetForm = () => {
+        setShowForm(false);
+        setEditingContractor(null);
+        setFormData({
+            name: '',
+            mobile: '',
+            address: '',
+            distanceValue: '',
+            distanceUnit: 'km',
+            expensePerUnit: ''
+        });
+    };
+
+    const getContractorPayments = (contractorId) => {
+        const payments = getCollection('contractorPayments', []);
+        return payments.filter(p => p.contractorId === contractorId);
+    };
+
+    return (
+        <div className="p-4 md:p-6 lg:p-8 max-w-7xl mx-auto">
+            <div className="flex justify-between items-center mb-6">
+                <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Contractors</h1>
+                <button
+                    onClick={() => setShowForm(!showForm)}
+                    className="px-5 py-2.5 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors font-medium"
+                >
+                    {showForm ? 'Cancel' : 'Create Contract'}
+                </button>
+            </div>
+
+            {showForm && (
+                <form onSubmit={handleSubmit} className="mb-6 bg-white p-4 md:p-6 rounded-lg shadow-sm border border-gray-200">
+                    <h2 className="text-xl font-bold text-gray-900 mb-4">
+                        {editingContractor ? 'Edit Contractor' : 'Create New Contract'}
+                    </h2>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Contractor Name</label>
+                            <input
+                                type="text"
+                                placeholder="Enter contractor name"
+                                value={formData.name}
+                                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                                required
+                                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Mobile Number</label>
+                            <input
+                                type="tel"
+                                placeholder="Enter mobile number"
+                                value={formData.mobile}
+                                onChange={(e) => setFormData({ ...formData, mobile: e.target.value })}
+                                required
+                                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                        </div>
+
+                        <div className="md:col-span-2">
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Address</label>
+                            <textarea
+                                placeholder="Enter address"
+                                value={formData.address}
+                                onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                                required
+                                rows="2"
+                                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Distance</label>
+                            <div className="flex gap-2">
+                                <input
+                                    type="number"
+                                    placeholder="Enter distance"
+                                    value={formData.distanceValue}
+                                    onChange={(e) => setFormData({ ...formData, distanceValue: e.target.value })}
+                                    required
+                                    className="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                />
+                                <select
+                                    value={formData.distanceUnit}
+                                    onChange={(e) => setFormData({ ...formData, distanceUnit: e.target.value })}
+                                    className="px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                >
+                                    <option value="km">KM</option>
+                                    <option value="m">M</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Expense per {formData.distanceUnit.toUpperCase()} (₹)
+                            </label>
+                            <input
+                                type="number"
+                                placeholder="Enter expense per unit"
+                                value={formData.expensePerUnit}
+                                onChange={(e) => setFormData({ ...formData, expensePerUnit: e.target.value })}
+                                required
+                                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                        </div>
+                    </div>
+
+                    <button
+                        type="submit"
+                        className="mt-5 px-6 py-2.5 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors font-medium"
+                    >
+                        {editingContractor ? 'Update Contractor' : 'Create Contractor'}
+                    </button>
+                </form>
+            )}
+
+            <div className="bg-white p-4 md:p-6 rounded-lg shadow-sm border border-gray-200">
+                <h2 className="text-xl font-bold text-gray-900 mb-4">Contractors List</h2>
+
+                {/* Mobile View */}
+                <div className="block md:hidden space-y-3">
+                    {contractors.map(contractor => (
+                        <div key={contractor.id} className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                            <div className="font-bold text-gray-900 mb-2">{contractor.name}</div>
+                            <div className="text-sm space-y-1 mb-3">
+                                <div><span className="font-medium">Mobile:</span> {contractor.mobile}</div>
+                                <div><span className="font-medium">Address:</span> {contractor.address}</div>
+                                <div><span className="font-medium">Distance:</span> {contractor.distanceValue} {contractor.distanceUnit}</div>
+                                <div><span className="font-medium">Expense:</span> ₹{contractor.expensePerUnit}/{contractor.distanceUnit}</div>
+                            </div>
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={() => setSelectedContractor(contractor)}
+                                    className="flex-1 px-3 py-2 bg-purple-500 text-white rounded text-sm font-medium hover:bg-purple-600"
+                                >
+                                    👁️ View
+                                </button>
+                                <button
+                                    onClick={() => handleEdit(contractor)}
+                                    className="flex-1 px-3 py-2 bg-yellow-500 text-white rounded text-sm font-medium hover:bg-yellow-600"
+                                >
+                                    ✏️ Edit
+                                </button>
+                                <button
+                                    onClick={() => handlePayment(contractor)}
+                                    className="flex-1 px-3 py-2 bg-green-500 text-white rounded text-sm font-medium hover:bg-green-600"
+                                >
+                                    💰 Pay
+                                </button>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+
+                {/* Desktop View */}
+                <div className="hidden md:block overflow-x-auto">
+                    <table className="w-full">
+                        <thead>
+                            <tr className="border-b-2 border-gray-200">
+                                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Name</th>
+                                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Mobile</th>
+                                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Address</th>
+                                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Distance</th>
+                                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Expense</th>
+                                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {contractors.map(contractor => (
+                                <tr key={contractor.id} className="border-b border-gray-200 hover:bg-gray-50">
+                                    <td className="px-4 py-3">{contractor.name}</td>
+                                    <td className="px-4 py-3">{contractor.mobile}</td>
+                                    <td className="px-4 py-3">{contractor.address}</td>
+                                    <td className="px-4 py-3">{contractor.distanceValue} {contractor.distanceUnit}</td>
+                                    <td className="px-4 py-3">₹{contractor.expensePerUnit}/{contractor.distanceUnit}</td>
+                                    <td className="px-4 py-3">
+                                        <div className="flex gap-2">
+                                            <button
+                                                onClick={() => setSelectedContractor(contractor)}
+                                                className="px-3 py-1.5 bg-purple-500 text-white rounded text-sm hover:bg-purple-600"
+                                                title="View Details"
+                                            >
+                                                👁️
+                                            </button>
+                                            <button
+                                                onClick={() => handleEdit(contractor)}
+                                                className="px-3 py-1.5 bg-yellow-500 text-white rounded text-sm hover:bg-yellow-600"
+                                                title="Edit"
+                                            >
+                                                ✏️
+                                            </button>
+                                            <button
+                                                onClick={() => handlePayment(contractor)}
+                                                className="px-3 py-1.5 bg-green-500 text-white rounded text-sm hover:bg-green-600"
+                                                title="Payment"
+                                            >
+                                                💰
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+
+                {contractors.length === 0 && (
+                    <p className="text-center text-gray-500 py-8">No contractors found. Create a new contract to get started.</p>
+                )}
+            </div>
+
+            {/* View Contractor Details Modal */}
+            {selectedContractor && !showPaymentModal && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-lg p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                        <div className="flex justify-between items-center mb-4">
+                            <h3 className="text-xl font-bold text-gray-900">Contractor Details</h3>
+                            <button
+                                onClick={() => setSelectedContractor(null)}
+                                className="text-gray-500 hover:text-gray-700"
+                            >
+                                ✕
+                            </button>
+                        </div>
+
+                        <div className="space-y-3 mb-6">
+                            <div className="p-3 bg-gray-50 rounded">
+                                <span className="font-medium text-gray-700">Name:</span> {selectedContractor.name}
+                            </div>
+                            <div className="p-3 bg-gray-50 rounded">
+                                <span className="font-medium text-gray-700">Mobile:</span> {selectedContractor.mobile}
+                            </div>
+                            <div className="p-3 bg-gray-50 rounded">
+                                <span className="font-medium text-gray-700">Address:</span> {selectedContractor.address}
+                            </div>
+                            <div className="p-3 bg-gray-50 rounded">
+                                <span className="font-medium text-gray-700">Distance:</span> {selectedContractor.distanceValue} {selectedContractor.distanceUnit}
+                            </div>
+                            <div className="p-3 bg-gray-50 rounded">
+                                <span className="font-medium text-gray-700">Expense per {selectedContractor.distanceUnit}:</span> ₹{selectedContractor.expensePerUnit}
+                            </div>
+                        </div>
+
+                        <h4 className="text-lg font-bold text-gray-900 mb-3">Payment History</h4>
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-sm">
+                                <thead>
+                                    <tr className="border-b-2 border-gray-200">
+                                        <th className="px-3 py-2 text-left font-semibold text-gray-700">Date</th>
+                                        <th className="px-3 py-2 text-left font-semibold text-gray-700">Amount</th>
+                                        <th className="px-3 py-2 text-left font-semibold text-gray-700">Machine Rent</th>
+                                        <th className="px-3 py-2 text-left font-semibold text-gray-700">Remark</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {getContractorPayments(selectedContractor.id).map(payment => (
+                                        <tr key={payment.id} className="border-b border-gray-200">
+                                            <td className="px-3 py-2">{new Date(payment.date).toLocaleDateString()}</td>
+                                            <td className="px-3 py-2">₹{payment.amount}</td>
+                                            <td className="px-3 py-2">₹{payment.machineRent}</td>
+                                            <td className="px-3 py-2">{payment.remark || '-'}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                            {getContractorPayments(selectedContractor.id).length === 0 && (
+                                <p className="text-center text-gray-500 py-4">No payment history</p>
+                            )}
+                        </div>
+
+                        <button
+                            onClick={() => setSelectedContractor(null)}
+                            className="mt-4 w-full px-4 py-2.5 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-medium"
+                        >
+                            Close
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {/* Payment Modal */}
+            {showPaymentModal && selectedContractor && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-lg p-6 max-w-md w-full">
+                        <h3 className="text-xl font-bold text-gray-900 mb-4">Payment for {selectedContractor.name}</h3>
+
+                        <form onSubmit={handlePaymentSubmit}>
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">Date</label>
+                                    <input
+                                        type="date"
+                                        value={paymentData.date}
+                                        onChange={(e) => setPaymentData({ ...paymentData, date: e.target.value })}
+                                        required
+                                        className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">Amount (₹)</label>
+                                    <input
+                                        type="number"
+                                        placeholder="Enter payment amount"
+                                        value={paymentData.amount}
+                                        onChange={(e) => setPaymentData({ ...paymentData, amount: e.target.value })}
+                                        required
+                                        className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">Machine Rent (Auto-fetched)</label>
+                                    <input
+                                        type="number"
+                                        value={paymentData.machineRent}
+                                        readOnly
+                                        className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">Remark</label>
+                                    <textarea
+                                        placeholder="Enter remark (optional)"
+                                        value={paymentData.remark}
+                                        onChange={(e) => setPaymentData({ ...paymentData, remark: e.target.value })}
+                                        rows="3"
+                                        className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="flex gap-3 mt-6">
+                                <button
+                                    type="submit"
+                                    className="flex-1 px-4 py-2.5 bg-green-500 text-white rounded-lg hover:bg-green-600 font-medium"
+                                >
+                                    Pay
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setShowPaymentModal(false);
+                                        setSelectedContractor(null);
+                                        setPaymentData({ date: new Date().toISOString().split('T')[0], amount: '', remark: '', machineRent: 0 });
+                                    }}
+                                    className="flex-1 px-4 py-2.5 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-medium"
+                                >
+                                    Cancel
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
+
+export default Contractors;
