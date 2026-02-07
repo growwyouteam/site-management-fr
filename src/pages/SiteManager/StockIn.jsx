@@ -4,6 +4,7 @@ import { showToast } from '../../components/Toast';
 import { useAuth } from '../../context/AuthContext';
 import { useSiteManager } from '../../context/SiteManagerContext';
 import ImageUpload from '../../components/ImageUpload';
+import { Eye } from 'lucide-react';
 
 const StockIn = () => {
   const { user } = useAuth();
@@ -12,6 +13,7 @@ const StockIn = () => {
   const [vendors, setVendors] = useState([]);
   const [projects, setProjects] = useState([]);
   const [stocks, setStocks] = useState([]);
+  const [materials, setMaterials] = useState([]); // Materials from admin stock
   const [formData, setFormData] = useState({ projectId: '', vendorId: '', materialName: '', unit: 'kg', quantity: '', unitPrice: '', photo: null, remarks: '' });
   const [photoPreview, setPhotoPreview] = useState('');
 
@@ -20,6 +22,10 @@ const StockIn = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showAllStocks, setShowAllStocks] = useState(false);
+
+  // Detail Modal State
+  const [showDetail, setShowDetail] = useState(false);
+  const [selectedStock, setSelectedStock] = useState(null);
 
   // Filter States
   const [filterVendorId, setFilterVendorId] = useState('');
@@ -34,10 +40,11 @@ const StockIn = () => {
   const fetchData = async () => {
     setIsLoading(true);
     try {
-      const [vendorsRes, projectsRes, stocksRes] = await Promise.all([
+      const [vendorsRes, projectsRes, stocksRes, materialsRes] = await Promise.all([
         api.get('/site/vendors').catch(() => ({ data: { success: false, data: [] } })),
         api.get('/site/projects').catch(() => ({ data: { success: false, data: [] } })),
-        api.get('/site/stocks', { params: { startDate, endDate, vendorId: filterVendorId } }).catch(() => ({ data: { success: false, data: [] } }))
+        api.get('/site/stocks', { params: { startDate, endDate, vendorId: filterVendorId } }).catch(() => ({ data: { success: false, data: [] } })),
+        api.get('/site/all-materials').catch(() => ({ data: { success: false, data: [] } }))
       ]);
 
       if (vendorsRes.data.success) {
@@ -64,6 +71,10 @@ const StockIn = () => {
         }
         setStocks(filteredStocks.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)));
       }
+
+      if (materialsRes.data.success) {
+        setMaterials(materialsRes.data.data || []);
+      }
     } catch (error) {
       console.error('Error fetching data:', error);
       showToast('Failed to load data', 'error');
@@ -85,6 +96,7 @@ const StockIn = () => {
       setIsSubmitting(true);
       const submitData = new FormData();
       Object.keys(formData).forEach(key => {
+        if (key === 'paymentStatus') return; // Skip paymentStatus, we append it manually below
         if (formData[key]) submitData.append(key, formData[key]);
       });
       submitData.append('paymentStatus', formData.paymentStatus || 'credit');
@@ -96,8 +108,10 @@ const StockIn = () => {
         setFormData(prev => ({ ...prev, materialName: '', unit: 'kg', quantity: '', unitPrice: '', photo: null, remarks: '' }));
         setPhotoPreview('');
         setShowForm(false);
-        if (response.data.data) setStocks(prev => [response.data.data, ...prev]);
-        else fetchData();
+        if (response.data.data) {
+          // Re-fetch to ensure proper population of fields if needed, or just append
+          fetchData();
+        }
       }
     } catch (error) {
       showToast(error.response?.data?.error || 'Failed to add stock', 'error');
@@ -117,6 +131,11 @@ const StockIn = () => {
   };
 
   const visibleStocks = useMemo(() => showAllStocks ? stocks : stocks.slice(0, 50), [stocks, showAllStocks]);
+
+  const handleViewDetail = (stock) => {
+    setSelectedStock(stock);
+    setShowDetail(true);
+  };
 
   if (isLoading) return <div className="flex justify-center items-center h-screen"><div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div></div>;
 
@@ -169,13 +188,18 @@ const StockIn = () => {
             </div>
             <div className="md:col-span-2 lg:col-span-3">
               <label className="block text-sm font-medium text-gray-700 mb-2">Material Name</label>
-              <input
-                type="text"
+              <select
                 value={formData.materialName}
                 onChange={(e) => setFormData({ ...formData, materialName: e.target.value })}
                 required
-                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
+                disabled={materials.length === 0 || isSubmitting}
+                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
+              >
+                <option value="">Select Material</option>
+                {materials.map((mat, idx) => (
+                  <option key={idx} value={mat}>{mat}</option>
+                ))}
+              </select>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Unit</label>
@@ -257,6 +281,7 @@ const StockIn = () => {
                 <th className="px-6 py-3">Price</th>
                 <th className="px-6 py-3">Vendor</th>
                 <th className="px-6 py-3">Project</th>
+                <th className="px-6 py-3">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -268,13 +293,98 @@ const StockIn = () => {
                   <td className="px-6 py-4">₹{stock.totalPrice?.toLocaleString()}</td>
                   <td className="px-6 py-4">{stock.vendorId?.name || 'Unknown'}</td>
                   <td className="px-6 py-4">{stock.projectId?.name || 'Unknown'}</td>
+                  <td className="px-6 py-4">
+                    <button
+                      onClick={() => handleViewDetail(stock)}
+                      className="text-blue-600 hover:text-blue-800 p-1 rounded hover:bg-blue-50 transition-colors"
+                      title="View Details"
+                    >
+                      <Eye size={20} />
+                    </button>
+                  </td>
                 </tr>
               ))}
-              {stocks.length === 0 && <tr><td colSpan="6" className="px-6 py-8 text-center">No stocks found</td></tr>}
+              {stocks.length === 0 && <tr><td colSpan="7" className="px-6 py-8 text-center">No stocks found</td></tr>}
             </tbody>
           </table>
         </div>
       </div>
+
+      {/* Stock Detail Modal */}
+      {showDetail && selectedStock && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-2xl font-bold text-gray-900">Stock Details</h2>
+                <button
+                  onClick={() => setShowDetail(false)}
+                  className="text-gray-500 hover:text-gray-700 text-2xl"
+                >
+                  ×
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                {selectedStock.photo ? (
+                  <div className="flex justify-center bg-gray-100 p-4 rounded-lg">
+                    <img src={selectedStock.photo} alt="Stock" className="max-w-full h-80 object-contain rounded border-2 border-gray-300 shadow-lg" />
+                  </div>
+                ) : (
+                  <div className="flex justify-center bg-gray-100 p-8 rounded-lg">
+                    <p className="text-gray-400 text-lg">📷 No photo available</p>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium text-gray-500">Project</label>
+                    <p className="text-lg font-semibold">{selectedStock.projectId?.name || '-'}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-500">Vendor</label>
+                    <p className="text-lg font-semibold">{selectedStock.vendorId?.name || '-'}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-500">Material Name</label>
+                    <p className="text-lg font-semibold">{selectedStock.materialName}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-500">Quantity</label>
+                    <p className="text-lg font-semibold">{selectedStock.quantity} {selectedStock.unit}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-500">Unit Price</label>
+                    <p className="text-lg font-semibold text-green-600">₹{selectedStock.unitPrice?.toLocaleString()}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-500">Total Price</label>
+                    <p className="text-lg font-semibold text-green-700">₹{selectedStock.totalPrice?.toLocaleString()}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-500">Added Date</label>
+                    <p className="text-lg">{new Date(selectedStock.createdAt).toLocaleDateString()}</p>
+                  </div>
+                  {selectedStock.remarks && (
+                    <div className="md:col-span-2">
+                      <label className="text-sm font-medium text-gray-500">Remarks</label>
+                      <p className="text-lg">{selectedStock.remarks}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+            <div className="bg-gray-50 px-6 py-4 rounded-b-lg flex justify-end">
+              <button
+                onClick={() => setShowDetail(false)}
+                className="px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300 transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

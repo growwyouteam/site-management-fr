@@ -24,6 +24,12 @@ const Stock = () => {
         remarks: ''
     });
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [photos, setPhotos] = useState([]); // Array of File objects
+    const [photoPreviews, setPhotoPreviews] = useState([]); // Array of preview URLs
+    const [selectedMaterialQty, setSelectedMaterialQty] = useState(null); // Remaining quantity for selected material
+    const [stockQuantities, setStockQuantities] = useState({}); // Map of material name to remaining quantity
+    const [showDetailModal, setShowDetailModal] = useState(false);
+    const [selectedStock, setSelectedStock] = useState(null);
 
     useEffect(() => {
         fetchProjects();
@@ -68,9 +74,20 @@ const Stock = () => {
                     return stockProjectId === projectId && s.quantity > 0;
                 });
 
+                // Calculate total quantity per material
+                const quantitiesMap = {};
+                projectStocks.forEach(stock => {
+                    if (quantitiesMap[stock.materialName]) {
+                        quantitiesMap[stock.materialName] += stock.quantity;
+                    } else {
+                        quantitiesMap[stock.materialName] = stock.quantity;
+                    }
+                });
+
                 // Get unique material names
                 const uniqueMaterials = [...new Set(projectStocks.map(s => s.materialName))];
                 setMaterials(uniqueMaterials);
+                setStockQuantities(quantitiesMap);
                 console.log(`✅ Materials loaded for project: ${uniqueMaterials.length}`);
             }
         } catch (error) {
@@ -103,15 +120,87 @@ const Stock = () => {
         fetchMovements();
     };
 
+    const handleMaterialChange = (materialName) => {
+        setOutFormData({ ...outFormData, materialName });
+        // Update selected material quantity
+        const qty = stockQuantities[materialName] || 0;
+        setSelectedMaterialQty(qty);
+    };
+
+    const handlePhotoUpload = (e) => {
+        const files = Array.from(e.target.files);
+        if (files.length + photos.length > 5) {
+            showToast('Maximum 5 photos allowed', 'error');
+            return;
+        }
+
+        const validFiles = [];
+        const newPreviews = [];
+
+        files.forEach(file => {
+            if (file.size > 5 * 1024 * 1024) { // 5MB limit
+                showToast('Photo size should be less than 5MB', 'error');
+                return;
+            }
+
+            validFiles.push(file);
+
+            // Create preview URL
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                newPreviews.push(reader.result);
+                if (newPreviews.length === validFiles.length) {
+                    setPhotoPreviews(prev => [...prev, ...newPreviews]);
+                }
+            };
+            reader.readAsDataURL(file);
+        });
+
+        setPhotos(prev => [...prev, ...validFiles]);
+    };
+
+    const removePhoto = (index) => {
+        setPhotos(prev => prev.filter((_, i) => i !== index));
+        setPhotoPreviews(prev => prev.filter((_, i) => i !== index));
+    };
+
     const handleStockOutSubmit = async (e) => {
         e.preventDefault();
+
+        // Validate quantity is not 0
+        if (selectedMaterialQty === 0) {
+            showToast('Cannot stock out - quantity is 0', 'error');
+            return;
+        }
+
         setIsSubmitting(true);
         try {
-            const res = await api.post('/site/stock-out', outFormData);
+            // Create FormData for multipart upload
+            const formData = new FormData();
+            formData.append('projectId', outFormData.projectId);
+            formData.append('materialName', outFormData.materialName);
+            formData.append('quantity', outFormData.quantity);
+            formData.append('unit', outFormData.unit);
+            formData.append('usedFor', outFormData.usedFor);
+            formData.append('remarks', outFormData.remarks);
+
+            // Append photos
+            photos.forEach(photo => {
+                formData.append('photos', photo);
+            });
+
+            const res = await api.post('/site/stock-out', formData, {
+                headers: {
+                    'Content-Type': 'multipart/form-data'
+                }
+            });
             if (res.data.success) {
                 showToast('Stock Out recorded successfully', 'success');
                 setShowOutForm(false);
                 setOutFormData({ projectId: '', materialName: '', quantity: '', unit: 'kg', usedFor: '', remarks: '' });
+                setPhotos([]);
+                setPhotoPreviews([]);
+                setSelectedMaterialQty(null);
                 // Refresh materials to show updated quantities
                 if (outFormData.projectId) {
                     fetchMaterials(outFormData.projectId);
@@ -131,7 +220,12 @@ const Stock = () => {
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
                 <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Stock Management</h1>
                 <button
-                    onClick={() => setShowOutForm(true)}
+                    onClick={() => {
+                        setShowOutForm(true);
+                        setPhotos([]);
+                        setPhotoPreviews([]);
+                        setSelectedMaterialQty(null);
+                    }}
                     className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 font-medium"
                 >
                     Record Stock usage (Out)
@@ -187,6 +281,7 @@ const Stock = () => {
                                 <th className="px-4 py-3">Project</th>
                                 <th className="px-4 py-3">Vendor / Used For</th>
                                 <th className="px-4 py-3">Remarks</th>
+                                <th className="px-4 py-3">Actions</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-200">
@@ -211,10 +306,22 @@ const Stock = () => {
                                         )}
                                     </td>
                                     <td className="px-4 py-3 text-gray-500 truncate max-w-xs">{move.remarks}</td>
+                                    <td className="px-4 py-3">
+                                        <button
+                                            onClick={() => {
+                                                setSelectedStock(move);
+                                                setShowDetailModal(true);
+                                            }}
+                                            className="px-3 py-1.5 bg-purple-500 text-white rounded text-sm hover:bg-purple-600"
+                                            title="View Details"
+                                        >
+                                            👁️
+                                        </button>
+                                    </td>
                                 </tr>
                             )) : (
                                 <tr>
-                                    <td colSpan="7" className="px-4 py-8 text-center text-gray-500">No records found</td>
+                                    <td colSpan="8" className="px-4 py-8 text-center text-gray-500">No records found</td>
                                 </tr>
                             )}
                         </tbody>
@@ -303,7 +410,7 @@ const Stock = () => {
                                 <select
                                     required
                                     value={outFormData.materialName}
-                                    onChange={e => setOutFormData({ ...outFormData, materialName: e.target.value })}
+                                    onChange={e => handleMaterialChange(e.target.value)}
                                     className="w-full px-3 py-2 border rounded"
                                 >
                                     <option value="">Select Material</option>
@@ -311,6 +418,16 @@ const Stock = () => {
                                         <option key={idx} value={mat}>{mat}</option>
                                     ))}
                                 </select>
+                                {/* Show remaining quantity */}
+                                {selectedMaterialQty !== null && (
+                                    <p className={`text-sm mt-1 font-medium ${selectedMaterialQty > 0 ? 'text-green-600' : 'text-red-600'
+                                        }`}>
+                                        {selectedMaterialQty > 0
+                                            ? `Available: ${selectedMaterialQty} ${outFormData.unit}`
+                                            : '⚠️ Stock is 0 - Cannot stock out'
+                                        }
+                                    </p>
+                                )}
                             </div>
                             <div className="grid grid-cols-2 gap-2">
                                 <div>
@@ -356,6 +473,39 @@ const Stock = () => {
                                     className="w-full px-3 py-2 border rounded"
                                 />
                             </div>
+
+                            {/* Photo Upload */}
+                            <div>
+                                <label className="block text-sm font-medium mb-1">Photos (Optional, Max 5)</label>
+                                <input
+                                    type="file"
+                                    accept="image/*"
+                                    multiple
+                                    onChange={handlePhotoUpload}
+                                    className="w-full px-3 py-2 border rounded text-sm"
+                                />
+                                {/* Photo Preview */}
+                                {photoPreviews.length > 0 && (
+                                    <div className="mt-2 grid grid-cols-3 gap-2">
+                                        {photoPreviews.map((preview, idx) => (
+                                            <div key={idx} className="relative">
+                                                <img
+                                                    src={preview}
+                                                    alt={`Preview ${idx + 1}`}
+                                                    className="w-full h-20 object-cover rounded border"
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => removePhoto(idx)}
+                                                    className="absolute top-0 right-0 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs"
+                                                >
+                                                    ×
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
                             <div className="flex gap-2 mt-4">
                                 <button
                                     type="button"
@@ -373,6 +523,111 @@ const Stock = () => {
                                 </button>
                             </div>
                         </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Stock Detail Modal */}
+            {showDetailModal && selectedStock && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-lg p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                        <div className="flex justify-between items-center mb-4">
+                            <h2 className="text-xl font-bold">Stock Details</h2>
+                            <button
+                                onClick={() => setShowDetailModal(false)}
+                                className="text-gray-500 hover:text-gray-700 text-2xl"
+                            >
+                                ×
+                            </button>
+                        </div>
+
+                        <div className="space-y-4">
+                            {/* Basic Info */}
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-600">Date</label>
+                                    <p className="text-base font-semibold">{new Date(selectedStock.date).toLocaleDateString()}</p>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-600">Type</label>
+                                    <span className={`inline-block px-3 py-1 rounded text-sm font-bold ${selectedStock.type === 'IN' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                                        {selectedStock.type}
+                                    </span>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-600">Material</label>
+                                    <p className="text-base font-semibold">{selectedStock.material}</p>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-600">Quantity</label>
+                                    <p className="text-base font-semibold">{selectedStock.quantity} {selectedStock.unit}</p>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-600">Project</label>
+                                <p className="text-base font-semibold">{selectedStock.project}</p>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-600">
+                                    {selectedStock.type === 'IN' ? 'Vendor' : 'Used For'}
+                                </label>
+                                <p className="text-base font-semibold">
+                                    {selectedStock.type === 'IN' ? selectedStock.vendor : selectedStock.usedFor}
+                                </p>
+                            </div>
+
+                            {selectedStock.remarks && (
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-600">Remarks</label>
+                                    <p className="text-base">{selectedStock.remarks}</p>
+                                </div>
+                            )}
+
+                            {/* Photos */}
+                            {(() => {
+                                const validPhotos = [];
+                                if (selectedStock.photos && Array.isArray(selectedStock.photos)) {
+                                    validPhotos.push(...selectedStock.photos);
+                                }
+                                if (selectedStock.photo && typeof selectedStock.photo === 'string') {
+                                    validPhotos.push(selectedStock.photo);
+                                }
+
+                                if (validPhotos.length > 0) {
+                                    return (
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-600 mb-2">Photos</label>
+                                            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                                                {validPhotos.map((photo, idx) => (
+                                                    <img
+                                                        key={idx}
+                                                        src={photo}
+                                                        alt={`Stock photo ${idx + 1}`}
+                                                        className="w-full h-32 object-cover rounded border cursor-pointer hover:opacity-75"
+                                                        onClick={() => window.open(photo, '_blank')}
+                                                    />
+                                                ))}
+                                            </div>
+                                        </div>
+                                    );
+                                }
+                                return null;
+                            })()}
+                        </div>
+
+                        <div className="mt-6">
+                            <button
+                                onClick={() => setShowDetailModal(false)}
+                                className="w-full px-4 py-2 bg-gray-200 rounded hover:bg-gray-300"
+                            >
+                                Close
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}

@@ -282,42 +282,104 @@ const SMMachines = () => {
                                         {machineDetails.rentCalculation.billableDays} days
                                     </p>
                                 </div>
+                                <div className="bg-blue-50 p-3 rounded-lg border border-blue-100">
+                                    <p className="text-xs text-blue-600 uppercase font-bold">Working Hours</p>
+                                    <p className="font-bold text-blue-700">
+                                        {(machineDetails.rentCalculation.totalDurationHours - machineDetails.rentCalculation.totalPausedHours).toFixed(2)} hrs
+                                    </p>
+                                </div>
                             </div>
 
-                            {/* Pause History Table */}
-                            {machineDetails.machine.rentPausedHistory && machineDetails.machine.rentPausedHistory.length > 0 ? (
-                                <div>
-                                    <h4 className="font-bold text-gray-700 mb-3">Pause/Resume History</h4>
-                                    <div className="overflow-x-auto border rounded-lg">
-                                        <table className="min-w-full text-sm">
-                                            <thead className="bg-gray-50">
-                                                <tr>
-                                                    <th className="px-4 py-2 text-left text-xs font-semibold text-gray-600">Paused At</th>
-                                                    <th className="px-4 py-2 text-left text-xs font-semibold text-gray-600">Resumed At</th>
-                                                    <th className="px-4 py-2 text-left text-xs font-semibold text-gray-600">Duration (hrs)</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody className="divide-y divide-gray-100">
-                                                {machineDetails.machine.rentPausedHistory.map((history, idx) => (
-                                                    <tr key={idx}>
-                                                        <td className="px-4 py-2 text-gray-700">
-                                                            {new Date(history.pausedAt).toLocaleString()}
-                                                        </td>
-                                                        <td className="px-4 py-2 text-gray-700">
-                                                            {history.resumedAt ? new Date(history.resumedAt).toLocaleString() : <span className="text-orange-500 font-bold">Paused Now</span>}
-                                                        </td>
-                                                        <td className="px-4 py-2 text-gray-700">
-                                                            {history.duration ? history.duration.toFixed(2) : '-'}
-                                                        </td>
+                            {/* Working History Table */}
+                            {(() => {
+                                const history = [];
+                                const startDate = new Date(machineDetails.rentCalculation.startDate);
+                                const pauseHistory = machineDetails.machine.rentPausedHistory || [];
+
+                                // First period: Start -> First Pause (or Now if no pauses)
+                                if (pauseHistory.length === 0) {
+                                    history.push({
+                                        from: startDate,
+                                        to: new Date(),
+                                        duration: (new Date() - startDate) / (1000 * 60 * 60),
+                                        status: 'Ongoing'
+                                    });
+                                } else {
+                                    // Start -> First Pause
+                                    const firstPause = new Date(pauseHistory[0].pausedAt);
+                                    history.push({
+                                        from: startDate,
+                                        to: firstPause,
+                                        duration: (firstPause - startDate) / (1000 * 60 * 60),
+                                        status: 'Completed'
+                                    });
+
+                                    // Intermediate periods: Resume(i) -> Pause(i+1)
+                                    for (let i = 0; i < pauseHistory.length - 1; i++) {
+                                        if (pauseHistory[i].resumedAt) {
+                                            const resumeTime = new Date(pauseHistory[i].resumedAt);
+                                            const nextPause = new Date(pauseHistory[i + 1].pausedAt);
+                                            history.push({
+                                                from: resumeTime,
+                                                to: nextPause,
+                                                duration: (nextPause - resumeTime) / (1000 * 60 * 60),
+                                                status: 'Completed'
+                                            });
+                                        }
+                                    }
+
+                                    // Last period: Last Resume -> Now (if resumed)
+                                    const lastRecord = pauseHistory[pauseHistory.length - 1];
+                                    if (lastRecord.resumedAt) {
+                                        const lastResume = new Date(lastRecord.resumedAt);
+                                        history.push({
+                                            from: lastResume,
+                                            to: new Date(),
+                                            duration: (new Date() - lastResume) / (1000 * 60 * 60),
+                                            status: 'Ongoing'
+                                        });
+                                    }
+                                }
+
+                                return (
+                                    <div>
+                                        <h4 className="font-bold text-gray-700 mb-3">Working History (Active Periods)</h4>
+                                        <div className="overflow-x-auto border rounded-lg max-h-60 overflow-y-auto">
+                                            <table className="min-w-full text-sm">
+                                                <thead className="bg-gray-50 sticky top-0">
+                                                    <tr>
+                                                        <th className="px-4 py-2 text-left text-xs font-semibold text-gray-600">From</th>
+                                                        <th className="px-4 py-2 text-left text-xs font-semibold text-gray-600">To</th>
+                                                        <th className="px-4 py-2 text-left text-xs font-semibold text-gray-600">Duration (hrs)</th>
+                                                        <th className="px-4 py-2 text-left text-xs font-semibold text-gray-600">Status</th>
                                                     </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
+                                                </thead>
+                                                <tbody className="divide-y divide-gray-100">
+                                                    {history.map((period, idx) => (
+                                                        <tr key={idx}>
+                                                            <td className="px-4 py-2 text-gray-700">
+                                                                {period.from.toLocaleString()}
+                                                            </td>
+                                                            <td className="px-4 py-2 text-gray-700">
+                                                                {period.status === 'Ongoing' ? <span className="text-green-600 font-bold">Now</span> : period.to.toLocaleString()}
+                                                            </td>
+                                                            <td className="px-4 py-2 text-gray-700 font-medium">
+                                                                {period.duration.toFixed(2)}
+                                                            </td>
+                                                            <td className="px-4 py-2">
+                                                                <span className={`text-xs px-2 py-1 rounded-full ${period.status === 'Ongoing' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                                                                    }`}>
+                                                                    {period.status}
+                                                                </span>
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
                                     </div>
-                                </div>
-                            ) : (
-                                <p className="text-gray-500 italic text-center">No pause history recorded.</p>
-                            )}
+                                );
+                            })()}
 
                         </div>
                         <div className="p-6 border-t border-gray-100 bg-gray-50 flex justify-end">

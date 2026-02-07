@@ -38,6 +38,7 @@ const Notifications = lazy(() => import('./pages/Admin/Notifications'));
 
 // Site Manager Pages
 const SMDashboard = lazy(() => import('./pages/SiteManager/SMDashboard'));
+const SMProjectDetail = lazy(() => import('./pages/SiteManager/SMProjectDetail'));
 const SMAttendance = lazy(() => import('./pages/SiteManager/SMAttendance'));
 const Labour = lazy(() => import('./pages/SiteManager/Labour'));
 const LabourAttendance = lazy(() => import('./pages/SiteManager/LabourAttendance'));
@@ -120,11 +121,11 @@ const Layout = ({ children }) => {
   }, [user]);
 
   return (
-    <div className="flex min-h-screen bg-bg-main">
+    <div className="flex min-h-screen bg-bg-main overflow-x-hidden">
       <Sidebar />
-      <div className="flex-1 flex flex-col md:ml-60 ml-0 transition-all duration-300">
+      <div className="flex-1 flex flex-col md:ml-60 ml-0 transition-all duration-300 overflow-x-hidden">
         <Navbar />
-        <main className="flex-1 overflow-auto p-4 md:p-6 lg:p-8">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-6 lg:p-8">
           {children}
         </main>
       </div>
@@ -158,6 +159,7 @@ const AppRoutes = () => {
           <Routes>
             <Route path="/" element={<Navigate to="/site" replace />} />
             <Route path="/site" element={<SMDashboard />} />
+            <Route path="/site/projects/:id" element={<SMProjectDetail />} />
             <Route path="/site/attendance" element={<SMAttendance />} />
             <Route path="/site/labour" element={<Labour />} />
             <Route path="/site/labour-attendance" element={<LabourAttendance />} />

@@ -693,7 +693,34 @@ const Payments = () => {
                                         <select
                                             required
                                             value={modalData.entityId}
-                                            onChange={(e) => setModalData({ ...modalData, entityId: e.target.value })}
+                                            onChange={(e) => {
+                                                const selectedId = e.target.value;
+                                                let pendingAmount = '';
+
+                                                // Auto-fill amount based on entity type
+                                                if (modalData.paymentType === 'vendor') {
+                                                    const vendor = vendors.find(v => v._id === selectedId);
+                                                    if (vendor) {
+                                                        pendingAmount = vendor.pendingAmount || 0;
+                                                    }
+                                                } else if (modalData.paymentType === 'contractor') {
+                                                    const contractor = contractors.find(c => c._id === selectedId);
+                                                    const stats = contractorStats[selectedId];
+                                                    if (stats) {
+                                                        pendingAmount = stats.pendingAmount || 0;
+                                                    } else if (contractor) {
+                                                        // Fallback calculation
+                                                        const totalPayable = (contractor.distanceValue || 0) * (contractor.expensePerUnit || 0);
+                                                        pendingAmount = totalPayable;
+                                                    }
+                                                }
+
+                                                setModalData({
+                                                    ...modalData,
+                                                    entityId: selectedId,
+                                                    amount: pendingAmount.toString()
+                                                });
+                                            }}
                                             className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
                                         >
                                             <option value="">Select {modalData.paymentType}</option>

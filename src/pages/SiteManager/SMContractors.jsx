@@ -10,36 +10,30 @@ const SMContractors = () => {
     const [contractors, setContractors] = useState([]);
     const [loading, setLoading] = useState(true);
 
-    // Add Modal State
-    const [showAddModal, setShowAddModal] = useState(false);
-    const [isSubmitting, setIsSubmitting] = useState(false);
-    const [formData, setFormData] = useState({
-        name: '',
-        mobile: '',
-        address: '',
-        distanceValue: '',
-        distanceUnit: 'km',
-        expensePerUnit: '',
-        assignedProjectId: ''
+    // Add Labour Modal State
+    const [showAddLabourModal, setShowAddLabourModal] = useState(false);
+    const [labourFormData, setLabourFormData] = useState({
+        name: '', phone: '', dailyWage: '', designation: 'Helper'
     });
-
-    // Details Modal State
-    const [showDetailsModal, setShowDetailsModal] = useState(false);
+    const [targetContractor, setTargetContractor] = useState(null);
     const [selectedContractor, setSelectedContractor] = useState(null);
     const [detailsData, setDetailsData] = useState(null);
-    const [loadingDetails, setLoadingDetails] = useState(false);
-    const [activeTab, setActiveTab] = useState('machines'); // 'machines' or 'payments'
+    const [showAddModal, setShowAddModal] = useState(false);
+    const [showDetailsModal, setShowDetailsModal] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [activeTab, setActiveTab] = useState('machines');
+    const [formData, setFormData] = useState({
+        name: '', mobile: '', address: '', distanceValue: '', distanceUnit: 'km'
+    });
 
     useEffect(() => {
-        if (selectedProject) {
-            setFormData(prev => ({ ...prev, assignedProjectId: selectedProject._id }));
-        }
         fetchContractors();
     }, [selectedProject]);
 
     const fetchContractors = async () => {
         try {
-            const response = await api.get('/site/site-contractors');
+            setLoading(true);
+            const response = await api.get('/site/site-contractors'); // Correct endpoint for site managers
             if (response.data.success) {
                 setContractors(response.data.data);
             }
@@ -51,19 +45,17 @@ const SMContractors = () => {
         }
     };
 
-    const fetchContractorDetails = async (id) => {
-        setLoadingDetails(true);
+    const fetchContractorDetails = async (contractorId) => {
         try {
-            const projectId = selectedProject ? selectedProject._id : '';
-            const response = await api.get(`/site/contractors/${id}/details?projectId=${projectId}`);
+            // Updated to use correct endpoint for details
+            const response = await api.get(`/site/contractors/${contractorId}/details`);
             if (response.data.success) {
                 setDetailsData(response.data.data);
                 setShowDetailsModal(true);
             }
         } catch (error) {
-            showToast('Failed to load details', 'error');
-        } finally {
-            setLoadingDetails(false);
+            console.error('Error fetching details:', error);
+            showToast('Failed to fetch details', 'error');
         }
     };
 
@@ -71,29 +63,45 @@ const SMContractors = () => {
         e.preventDefault();
         try {
             setIsSubmitting(true);
-            const payload = {
-                ...formData,
-                assignedProjectId: selectedProject?._id // Ensure current project is used
-            };
-
-            if (!payload.assignedProjectId) {
-                showToast('Please select a project first', 'error');
-                return;
-            }
-
-            const response = await api.post('/site/contractors', payload);
+            const response = await api.post('/site/contractors', formData);
             if (response.data.success) {
-                showToast(response.data.message, 'success');
+                showToast('Contractor added successfully', 'success');
                 setShowAddModal(false);
-                setFormData({
-                    name: '', mobile: '', address: '',
-                    distanceValue: '', distanceUnit: 'km', expensePerUnit: '',
-                    assignedProjectId: selectedProject?._id
-                });
                 fetchContractors();
+                setFormData({ name: '', mobile: '', address: '', distanceValue: '', distanceUnit: 'km' });
             }
         } catch (error) {
             showToast(error.response?.data?.error || 'Failed to add contractor', 'error');
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    const handleAddLabourClick = (contractor) => {
+        setTargetContractor(contractor);
+        setLabourFormData({ name: '', phone: '', dailyWage: '', designation: 'Helper' });
+        setShowAddLabourModal(true);
+    };
+
+    const handleLabourSubmit = async (e) => {
+        e.preventDefault();
+        if (!selectedProject || !targetContractor) return;
+
+        try {
+            setIsSubmitting(true);
+            const payload = {
+                ...labourFormData,
+                assignedSite: selectedProject._id,
+                contractorId: targetContractor._id
+            };
+
+            const response = await api.post('/site/labours', payload); // Corrected endpoint
+            if (response.data.success) {
+                showToast('Labour added to contractor successfully', 'success');
+                setShowAddLabourModal(false);
+            }
+        } catch (error) {
+            showToast(error.response?.data?.error || 'Failed to add labour', 'error');
         } finally {
             setIsSubmitting(false);
         }
@@ -118,34 +126,52 @@ const SMContractors = () => {
                     No contractors found assigned to your projects.
                 </div>
             ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {contractors.map(contractor => (
-                        <div key={contractor._id} className="bg-white rounded-lg shadow p-6 border border-gray-100 hover:shadow-md transition-shadow">
-                            <div className="flex justify-between items-start mb-4">
-                                <div>
-                                    <h3 className="font-bold text-lg text-gray-900">{contractor.name}</h3>
-                                    <p className="text-sm text-gray-500">{contractor.mobile}</p>
-                                </div>
-                                <span className={`px-2 py-1 text-xs rounded-full ${contractor.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                                    {contractor.status}
-                                </span>
-                            </div>
-                            <div className="space-y-2 text-sm text-gray-600 mb-4">
-                                <p>Address: <span className="text-gray-900">{contractor.address || 'N/A'}</span></p>
-                                <p>Distance: <span className="text-gray-900">{contractor.distanceValue ? `${contractor.distanceValue} ${contractor.distanceUnit}` : 'N/A'}</span></p>
-                            </div>
-                            <button
-                                onClick={() => { setSelectedContractor(contractor); fetchContractorDetails(contractor._id); }}
-                                className="w-full py-2 bg-blue-50 text-blue-600 rounded hover:bg-blue-100 font-medium transition-colors"
-                            >
-                                View Details
-                            </button>
-                        </div>
-                    ))}
+                <div className="bg-white rounded-lg shadow overflow-hidden">
+                    <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50">
+                            <tr>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Mobile</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Address</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                            {contractors.map(contractor => (
+                                <tr key={contractor._id} className="hover:bg-gray-50">
+                                    <td className="px-6 py-4 whitespace-nowrap">
+                                        <div className="font-medium text-gray-900">{contractor.name}</div>
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-gray-500">{contractor.mobile}</td>
+                                    <td className="px-6 py-4 text-gray-500 max-w-xs truncate">{contractor.address}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap">
+                                        <span className={`px-2 py-1 text-xs rounded-full ${contractor.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                                            {contractor.status}
+                                        </span>
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
+                                        <button
+                                            onClick={() => handleAddLabourClick(contractor)}
+                                            className="text-indigo-600 hover:text-indigo-900 bg-indigo-50 px-3 py-1 rounded"
+                                        >
+                                            + Add Labour
+                                        </button>
+                                        <button
+                                            onClick={() => { setSelectedContractor(contractor); fetchContractorDetails(contractor._id); }}
+                                            className="text-blue-600 hover:text-blue-900 bg-blue-50 px-3 py-1 rounded"
+                                        >
+                                            View Details
+                                        </button>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
                 </div>
             )}
 
-            {/* Add Modal */}
+            {/* Add Contractor Modal */}
             {showAddModal && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
                     <div className="bg-white rounded-xl shadow-lg w-full max-w-md p-6">
@@ -180,6 +206,47 @@ const SMContractors = () => {
                                 <button type="button" onClick={() => setShowAddModal(false)} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded">Cancel</button>
                                 <button type="submit" disabled={isSubmitting} className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50">
                                     {isSubmitting ? 'Adding...' : 'Add Contractor'}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Add Labour Modal */}
+            {showAddLabourModal && targetContractor && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+                    <div className="bg-white rounded-xl shadow-lg w-full max-w-md p-6">
+                        <h2 className="text-xl font-bold mb-4">Add Labour for {targetContractor.name}</h2>
+                        <form onSubmit={handleLabourSubmit} className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Labour Name</label>
+                                <input required type="text" className="w-full border rounded p-2" value={labourFormData.name} onChange={e => setLabourFormData({ ...labourFormData, name: e.target.value })} />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
+                                <input required type="tel" className="w-full border rounded p-2" value={labourFormData.phone} onChange={e => setLabourFormData({ ...labourFormData, phone: e.target.value })} />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Daily Wage (₹)</label>
+                                <input required type="number" className="w-full border rounded p-2" value={labourFormData.dailyWage} onChange={e => setLabourFormData({ ...labourFormData, dailyWage: e.target.value })} />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Designation</label>
+                                <select className="w-full border rounded p-2" value={labourFormData.designation} onChange={e => setLabourFormData({ ...labourFormData, designation: e.target.value })}>
+                                    <option value="Helper">Helper</option>
+                                    <option value="Mason">Mason</option>
+                                    <option value="Carpenter">Carpenter</option>
+                                    <option value="Plumber">Plumber</option>
+                                    <option value="Electrician">Electrician</option>
+                                    <option value="Supervisor">Supervisor</option>
+                                    <option value="Labor">Labor</option>
+                                </select>
+                            </div>
+                            <div className="flex justify-end gap-3 mt-6">
+                                <button type="button" onClick={() => setShowAddLabourModal(false)} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded">Cancel</button>
+                                <button type="submit" disabled={isSubmitting} className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50">
+                                    {isSubmitting ? 'Adding...' : 'Add Labour'}
                                 </button>
                             </div>
                         </form>

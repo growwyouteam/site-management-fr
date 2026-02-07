@@ -14,6 +14,22 @@ const SMExpenses = () => {
   const [formData, setFormData] = useState({ projectId: '', name: '', amount: '', voucherNumber: '', remarks: '', receipt: '' });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const [isOtherExpense, setIsOtherExpense] = useState(false);
+
+  const expenseCategories = [
+    'Material Purchase',
+    'Labour Payment',
+    'Equipment Rent',
+    'Fuel',
+    'Transportation',
+    'Food/Refreshments',
+    'Office Expenses',
+    'Repairs & Maintenance',
+    'Site Setup',
+    'Utility Bills',
+    'Other'
+  ];
+
   useEffect(() => {
     fetchData();
   }, []); // Fetch data on mount
@@ -112,7 +128,37 @@ const SMExpenses = () => {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Expense Name</label>
-              <input type="text" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} placeholder="e.g., Material Purchase" required disabled={isSubmitting} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100" />
+              <select
+                value={isOtherExpense ? 'Other' : formData.name}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (val === 'Other') {
+                    setIsOtherExpense(true);
+                    setFormData({ ...formData, name: '' });
+                  } else {
+                    setIsOtherExpense(false);
+                    setFormData({ ...formData, name: val });
+                  }
+                }}
+                required
+                disabled={isSubmitting}
+                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
+              >
+                <option value="">Select Expense Type</option>
+                {expenseCategories.map((cat, idx) => (
+                  <option key={idx} value={cat}>{cat}</option>
+                ))}
+              </select>
+              {isOtherExpense && (
+                <input
+                  type="text"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  placeholder="Enter custom expense name"
+                  required
+                  className="mt-2 w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              )}
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Amount (₹)</label>

@@ -107,8 +107,14 @@ const Sidebar = () => {
         ${isOpen ? 'w-64 translate-x-0' : 'w-0 -translate-x-full md:w-16'}
       `}>
         {/* Logo Section */}
-        <div className=" pl-20 py-8 px-5 border-b border-border-light">
-          <h2 className={`text-primary font-bold tracking-widest uppercase ${isOpen || window.innerWidth >= 768 ? 'text-lg' : 'text-xs text-center'
+        {/* Logo Section */}
+        <div className="flex flex-col items-center justify-center py-6 border-b border-border-light">
+          {/* <img
+            src="/logo2.png"
+            alt="Logo"
+            className={`object-contain transition-all duration-300 ${isOpen || window.innerWidth >= 768 ? 'h-20 mb-2' : 'h-8 mb-1'}`}
+          /> */}
+          <h2 className={`text-primary font-bold tracking-widest uppercase transition-all duration-300 ${isOpen || window.innerWidth >= 768 ? 'text-lg' : 'text-[10px] text-center'
             }`}>
             {isOpen || window.innerWidth >= 768 ? (user?.role === 'admin' ? 'ADMIN' : 'MANAGER') : (user?.role === 'admin' ? 'AD' : 'MG')}
           </h2>

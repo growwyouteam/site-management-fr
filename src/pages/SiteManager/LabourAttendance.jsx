@@ -13,6 +13,7 @@ const LabourAttendance = () => {
   const [attendance, setAttendance] = useState([]);
   const [statusMap, setStatusMap] = useState({});
   const [savingId, setSavingId] = useState(null); // Track which labour is being saved
+  const [selectedContractorId, setSelectedContractorId] = useState(null); // null = Site Labour, 'all_contractors' = All Contractors
 
 
   const [editingId, setEditingId] = useState(null);
@@ -154,53 +155,83 @@ const LabourAttendance = () => {
         </button>
       </div>
 
+      {/* Tabs */}
+      <div className="flex border-b border-gray-200 mb-6">
+        <button
+          className={`px-6 py-3 font-medium text-sm border-b-2 transition-colors ${!selectedContractorId ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+          onClick={() => setSelectedContractorId(null)}
+        >
+          Site Labour
+        </button>
+        <button
+          className={`px-6 py-3 font-medium text-sm border-b-2 transition-colors ${selectedContractorId === 'all_contractors' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+          onClick={() => setSelectedContractorId('all_contractors')}
+        >
+          Contractor Labour
+        </button>
+      </div>
+
       {showMarkingList && (
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-8 animate-fadeIn">
           <div className="p-4 border-b border-gray-100 bg-gray-50">
-            <h2 className="font-semibold text-gray-700">Mark Today's Attendance</h2>
-            <p className="text-sm text-gray-500">Pick status (Present / Half / Absent) for each labour and hit Save.</p>
+            <h2 className="font-semibold text-gray-700">
+              Mark Today's Attendance ({selectedContractorId ? 'Contractor Labour' : 'Site Labour'})
+            </h2>
           </div>
           <div className="hidden md:grid grid-cols-12 gap-4 px-4 py-3 border-b bg-gray-50 text-sm font-semibold text-gray-700">
             <span className="col-span-1 text-center">#</span>
-            <span className="col-span-6">Name</span>
-            <span className="col-span-3">Status</span>
+            <span className="col-span-5">Name</span>
+            {selectedContractorId && <span className="col-span-2">Contractor</span>}
+            <span className={`col-span-${selectedContractorId ? '2' : '4'}`}>Status</span>
             <span className="col-span-2 text-center">Action</span>
           </div>
 
           <div className="divide-y divide-gray-200">
-            {labours.map((labour, idx) => (
-              <div key={labour._id} className="grid grid-cols-1 md:grid-cols-12 gap-3 px-4 py-4 items-center">
-                <div className="md:col-span-1 text-sm font-semibold text-gray-700 text-center md:text-left">{idx + 1}</div>
-                <div className="md:col-span-6">
-                  <div className="text-base font-bold text-gray-900">{labour.name}</div>
-                  <div className="text-sm text-gray-500">{labour.designation || 'Labour'}</div>
+            {labours
+              .filter(l => {
+                if (!selectedContractorId) return !l.contractorId; // Site Labour (contractorId is null)
+                return l.contractorId; // Any Contractor Labour
+              })
+              .map((labour, idx) => (
+                <div key={labour._id} className="grid grid-cols-1 md:grid-cols-12 gap-3 px-4 py-4 items-center">
+                  <div className="md:col-span-1 text-sm font-semibold text-gray-700 text-center md:text-left">{idx + 1}</div>
+                  <div className="md:col-span-5">
+                    <div className="text-base font-bold text-gray-900">{labour.name}</div>
+                    <div className="text-sm text-gray-500">{labour.designation || 'Labour'}</div>
+                  </div>
+                  {selectedContractorId && (
+                    <div className="md:col-span-2 text-sm text-blue-600 font-medium">
+                      {labour.contractorId?.name || 'Unknown Contractor'}
+                    </div>
+                  )}
+                  <div className={`md:col-span-${selectedContractorId ? '2' : '4'}`}>
+                    <select
+                      value={statusMap[labour._id] || 'present'}
+                      onChange={(e) => setStatusMap(prev => ({ ...prev, [labour._id]: e.target.value }))}
+                      disabled={savingId === labour._id}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
+                    >
+                      <option value="present">Present</option>
+                      <option value="half">Half</option>
+                      <option value="absent">Absent</option>
+                    </select>
+                  </div>
+                  <div className="md:col-span-2 flex md:justify-center">
+                    <button
+                      onClick={() => handleSave(labour)}
+                      disabled={savingId === labour._id}
+                      className={`px-4 py-2 text-white rounded-lg transition-colors text-sm font-semibold w-full md:w-auto flex justify-center items-center gap-2 ${savingId === labour._id ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-500 hover:bg-green-600'}`}
+                    >
+                      {savingId === labour._id ? 'Saving...' : 'Save'}
+                    </button>
+                  </div>
                 </div>
-                <div className="md:col-span-3">
-                  <select
-                    value={statusMap[labour._id] || 'present'}
-                    onChange={(e) => setStatusMap(prev => ({ ...prev, [labour._id]: e.target.value }))}
-                    disabled={savingId === labour._id}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
-                  >
-                    <option value="present">Present</option>
-                    <option value="half">Half</option>
-                    <option value="absent">Absent</option>
-                  </select>
-                </div>
-                <div className="md:col-span-2 flex md:justify-center">
-                  <button
-                    onClick={() => handleSave(labour)}
-                    disabled={savingId === labour._id}
-                    className={`px-4 py-2 text-white rounded-lg transition-colors text-sm font-semibold w-full md:w-auto flex justify-center items-center gap-2 ${savingId === labour._id ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-500 hover:bg-green-600'}`}
-                  >
-                    {savingId === labour._id ? 'Saving...' : 'Save'}
-                  </button>
-                </div>
-              </div>
-            ))}
+              ))}
 
-            {labours.length === 0 && (
-              <div className="px-4 py-6 text-center text-gray-500">All assigned labours have attendance marked for today.</div>
+            {labours.filter(l => !selectedContractorId ? !l.contractorId : l.contractorId).length === 0 && (
+              <div className="px-4 py-6 text-center text-gray-500">
+                All {selectedContractorId ? 'contractor' : 'site'} labours have attendance marked for today.
+              </div>
             )}
           </div>
         </div>
@@ -249,19 +280,25 @@ const LabourAttendance = () => {
                     </td>
                     <td className="px-4 py-3 text-gray-500">{new Date(a.time || a.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
                     <td className="px-4 py-3">
-                      {editingId === a._id ? (
-                        <div className="flex gap-2">
-                          <button onClick={() => saveEdit(a)} className="text-green-600 hover:text-green-800 font-bold text-xs">Save</button>
-                          <button onClick={cancelEdit} className="text-gray-500 hover:text-gray-700 text-xs">Cancel</button>
-                        </div>
-                      ) : (
-                        <button
-                          onClick={() => startEdit(a)}
-                          className="px-3 py-1.5 bg-blue-500 text-white rounded text-xs font-semibold hover:bg-blue-600"
-                        >
-                          Edit
-                        </button>
-                      )}
+                      <td className="px-4 py-3">
+                        {editingId === a._id ? (
+                          <div className="flex gap-2">
+                            <button onClick={() => saveEdit(a)} className="text-green-600 hover:text-green-800 font-bold text-xs">Save</button>
+                            <button onClick={cancelEdit} className="text-gray-500 hover:text-gray-700 text-xs">Cancel</button>
+                          </div>
+                        ) : (
+                          new Date(a.date).setHours(0, 0, 0, 0) >= new Date().setHours(0, 0, 0, 0) ? (
+                            <button
+                              onClick={() => startEdit(a)}
+                              className="px-3 py-1.5 bg-blue-500 text-white rounded text-xs font-semibold hover:bg-blue-600"
+                            >
+                              Edit
+                            </button>
+                          ) : (
+                            <span className="text-xs text-gray-400 italic">Locked</span>
+                          )
+                        )}
+                      </td>
                     </td>
                   </tr>
                 ))}
@@ -304,12 +341,18 @@ const LabourAttendance = () => {
                         <button onClick={cancelEdit} className="px-4 py-2 bg-gray-300 text-gray-700 rounded text-sm font-semibold hover:bg-gray-400">Cancel</button>
                       </div>
                     ) : (
-                      <button
-                        onClick={() => startEdit(a)}
-                        className="w-full sm:w-auto px-4 py-2 bg-blue-500 text-white rounded text-sm font-semibold hover:bg-blue-600"
-                      >
-                        Edit Status
-                      </button>
+                      new Date(a.date).setHours(0, 0, 0, 0) >= new Date().setHours(0, 0, 0, 0) ? (
+                        <button
+                          onClick={() => startEdit(a)}
+                          className="w-full sm:w-auto px-4 py-2 bg-blue-500 text-white rounded text-sm font-semibold hover:bg-blue-600"
+                        >
+                          Edit Status
+                        </button>
+                      ) : (
+                        <button disabled className="w-full sm:w-auto px-4 py-2 bg-gray-100 text-gray-400 rounded text-sm font-semibold cursor-not-allowed">
+                          Edit Locked (Past Date)
+                        </button>
+                      )
                     )}
                   </div>
                 </div>

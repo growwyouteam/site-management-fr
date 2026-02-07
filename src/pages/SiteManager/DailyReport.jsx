@@ -18,7 +18,7 @@ const DailyReport = () => {
     reportType: 'Morning Report',
     description: '',
     photos: [],
-    roadDistance: { value: '', unit: 'm' },
+    roadProgress: [],
     stockUsed: []
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -140,6 +140,26 @@ const DailyReport = () => {
     setFormData({ ...formData, stockUsed: updated });
   };
 
+  const addRoadProgress = () => {
+    setFormData({
+      ...formData,
+      roadProgress: [...formData.roadProgress, { description: '', value: '', unit: 'm' }]
+    });
+  };
+
+  const removeRoadProgress = (index) => {
+    setFormData({
+      ...formData,
+      roadProgress: formData.roadProgress.filter((_, i) => i !== index)
+    });
+  };
+
+  const updateRoadProgress = (index, field, value) => {
+    const updated = [...formData.roadProgress];
+    updated[index][field] = value;
+    setFormData({ ...formData, roadProgress: updated });
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (isSubmitting) return;
@@ -150,10 +170,10 @@ const DailyReport = () => {
       // Prepare data
       const submitData = {
         ...formData,
-        roadDistance: formData.roadDistance.value ? {
-          value: Number(formData.roadDistance.value),
-          unit: formData.roadDistance.unit
-        } : undefined,
+        roadProgress: formData.roadProgress.map(rp => ({
+          ...rp,
+          value: Number(rp.value)
+        })),
         stockUsed: formData.stockUsed.map(item => ({
           ...item,
           quantity: Number(item.quantity)
@@ -211,34 +231,74 @@ const DailyReport = () => {
 
         {/* Road Construction Section */}
         <div className="mb-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
-          <h3 className="text-lg font-semibold text-blue-900 mb-3">🛣️ Road Construction Progress</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Distance</label>
-              <input
-                type="number"
-                value={formData.roadDistance.value}
-                onChange={(e) => setFormData({ ...formData, roadDistance: { ...formData.roadDistance, value: e.target.value } })}
-                placeholder="Enter distance"
-                min="0"
-                step="0.01"
-                disabled={isSubmitting}
-                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Unit</label>
-              <select
-                value={formData.roadDistance.unit}
-                onChange={(e) => setFormData({ ...formData, roadDistance: { ...formData.roadDistance, unit: e.target.value } })}
-                disabled={isSubmitting}
-                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
-              >
-                <option value="m">Meters (m)</option>
-                <option value="km">Kilometers (km)</option>
-              </select>
-            </div>
+          <div className="flex justify-between items-center mb-3">
+            <h3 className="text-lg font-semibold text-blue-900">🛣️ Road Construction Progress</h3>
+            <button
+              type="button"
+              onClick={addRoadProgress}
+              disabled={isSubmitting}
+              className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-gray-400 transition-colors text-sm"
+            >
+              + Add Road
+            </button>
           </div>
+
+          {formData.roadProgress.length === 0 ? (
+            <p className="text-gray-600 text-sm">No road progress added. Click "+ Add Road" to add details.</p>
+          ) : (
+            <div className="space-y-3">
+              {formData.roadProgress.map((item, index) => (
+                <div key={index} className="grid grid-cols-1 md:grid-cols-4 gap-3 p-3 bg-white rounded-lg border border-blue-200">
+                  <div className="md:col-span-2">
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Description (e.g. Main Road)</label>
+                    <input
+                      type="text"
+                      value={item.description}
+                      onChange={(e) => updateRoadProgress(index, 'description', e.target.value)}
+                      placeholder="Road Name / Location"
+                      disabled={isSubmitting}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm disabled:bg-gray-100"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Distance</label>
+                    <div className="flex gap-2">
+                      <input
+                        type="number"
+                        value={item.value}
+                        onChange={(e) => updateRoadProgress(index, 'value', e.target.value)}
+                        placeholder="0"
+                        min="0"
+                        step="0.01"
+                        required
+                        disabled={isSubmitting}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm disabled:bg-gray-100"
+                      />
+                      <select
+                        value={item.unit}
+                        onChange={(e) => updateRoadProgress(index, 'unit', e.target.value)}
+                        disabled={isSubmitting}
+                        className="w-24 px-2 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm disabled:bg-gray-100 bg-white"
+                      >
+                        <option value="m">m</option>
+                        <option value="km">km</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div className="flex items-end">
+                    <button
+                      type="button"
+                      onClick={() => removeRoadProgress(index)}
+                      disabled={isSubmitting}
+                      className="w-full px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 disabled:bg-gray-400 transition-colors text-sm"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Stock Usage Section */}
@@ -370,13 +430,21 @@ const DailyReport = () => {
                       {r.description}
                     </td>
                     <td className="px-4 py-3">
-                      {r.roadDistance && r.roadDistance.value > 0 ? (
+                      {r.roadProgress && r.roadProgress.length > 0 ? (
+                        <div className="flex flex-col gap-1">
+                          {r.roadProgress.map((rp, idx) => (
+                            <span key={idx} className="text-sm text-blue-700 bg-blue-50 px-2 py-1 rounded">
+                              {rp.description ? `${rp.description}: ` : ''}{rp.value} {rp.unit}
+                            </span>
+                          ))}
+                        </div>
+                      ) : (r.roadDistance && r.roadDistance.value > 0 ? (
                         <span className="text-sm text-blue-700 bg-blue-50 px-2 py-1 rounded">
                           🛣️ {r.roadDistance.value} {r.roadDistance.unit}
                         </span>
                       ) : (
                         <span className="text-gray-400 text-sm">-</span>
-                      )}
+                      ))}
                     </td>
                     <td className="px-4 py-3">
                       {r.stockUsed && r.stockUsed.length > 0 ? (

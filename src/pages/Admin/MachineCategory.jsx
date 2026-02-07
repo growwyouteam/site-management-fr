@@ -37,6 +37,12 @@ const MachineCategory = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
 
+  // Filter states
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [ownershipFilter, setOwnershipFilter] = useState('all');
+  const [assignmentFilter, setAssignmentFilter] = useState('all');
+
   useEffect(() => {
     fetchMachines();
     fetchProjects();
@@ -343,6 +349,30 @@ const MachineCategory = () => {
     setShowAssignModal(true);
   };
 
+  const handleUnassignMachine = async (machine) => {
+    const confirmMsg = `Unassign ${machine.name}?\n\nThis will:\n- Set status to "Available"\n- Clear project/contractor assignment\n- Clear rental details`;
+
+    if (!confirm(confirmMsg)) return;
+
+    try {
+      const response = await api.put(`/admin/machines/${machine._id}`, {
+        status: 'available',
+        projectId: '',
+        assignedToContractor: '',
+        assignedAsRental: false,
+        assignedRentalPerDay: 0,
+        rentalType: 'perDay'
+      });
+
+      if (response.data.success) {
+        showToast('Machine unassigned successfully', 'success');
+        fetchMachines();
+      }
+    } catch (error) {
+      showToast(error.response?.data?.error || 'Failed to unassign machine', 'error');
+    }
+  };
+
   const categoryNames = {
     big: 'Big Machines',
     lab: 'Lab Equipment',
@@ -375,6 +405,35 @@ const MachineCategory = () => {
     return contractor?.name || 'Unknown Contractor';
   };
 
+  // Filter machines based on search and filters
+  const getFilteredMachines = () => {
+    return machines.filter(machine => {
+      // Search filter
+      const searchLower = searchQuery.toLowerCase();
+      const matchesSearch = !searchQuery ||
+        machine.name?.toLowerCase().includes(searchLower) ||
+        machine.plateNumber?.toLowerCase().includes(searchLower) ||
+        machine.model?.toLowerCase().includes(searchLower) ||
+        machine.vendorName?.toLowerCase().includes(searchLower);
+
+      // Status filter
+      const matchesStatus = statusFilter === 'all' || machine.status === statusFilter;
+
+      // Ownership filter
+      const matchesOwnership = ownershipFilter === 'all' || machine.ownershipType === ownershipFilter;
+
+      // Assignment filter
+      let matchesAssignment = true;
+      if (assignmentFilter === 'assigned') {
+        matchesAssignment = machine.status === 'in-use' && (machine.projectId || machine.assignedToContractor);
+      } else if (assignmentFilter === 'unassigned') {
+        matchesAssignment = machine.status === 'available' || (!machine.projectId && !machine.assignedToContractor);
+      }
+
+      return matchesSearch && matchesStatus && matchesOwnership && matchesAssignment;
+    });
+  };
+
   return (
     <div className="p-4 md:p-6 lg:p-8 max-w-7xl mx-auto">
       <button
@@ -391,6 +450,110 @@ const MachineCategory = () => {
       >
         {showForm ? 'Cancel' : `Add ${isConsumable ? 'Consumable Item' : isEquipment ? 'Equipment' : isLabEquipment ? 'Equipment' : 'Machine'}`}
       </button>
+
+      {/* Filters Section */}
+      {!showForm && (
+        <div className="mt-6 bg-gradient-to-r from-gray-50 to-gray-100 p-4 md:p-5 rounded-xl shadow-sm border border-gray-200">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Search */}
+            <div className="lg:col-span-2">
+              <label className="block text-sm font-semibold text-gray-700 mb-2">🔍 Search</label>
+              <input
+                type="text"
+                placeholder="Search by name, plate, model, vendor..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-white"
+              />
+            </div>
+
+            {/* Status Filter */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">📊 Status</label>
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-white font-medium"
+              >
+                <option value="all">All Status</option>
+                <option value="available">Available</option>
+                <option value="in-use">In Use</option>
+                <option value="maintenance">Maintenance</option>
+              </select>
+            </div>
+
+            {/* Ownership Filter */}
+            {!isConsumable && (
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">🏢 Ownership</label>
+                <select
+                  value={ownershipFilter}
+                  onChange={(e) => setOwnershipFilter(e.target.value)}
+                  className="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-white font-medium"
+                >
+                  <option value="all">All Types</option>
+                  <option value="own">Own</option>
+                  <option value="rented">Rented</option>
+                </select>
+              </div>
+            )}
+
+            {/* Assignment Filter */}
+            {!isConsumable && (
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">📍 Assignment</label>
+                <select
+                  value={assignmentFilter}
+                  onChange={(e) => setAssignmentFilter(e.target.value)}
+                  className="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-white font-medium"
+                >
+                  <option value="all">All</option>
+                  <option value="assigned">Assigned</option>
+                  <option value="unassigned">Unassigned</option>
+                </select>
+              </div>
+            )}
+          </div>
+
+          {/* Active Filters Summary */}
+          {(searchQuery || statusFilter !== 'all' || ownershipFilter !== 'all' || assignmentFilter !== 'all') && (
+            <div className="mt-3 flex flex-wrap gap-2 items-center">
+              <span className="text-sm font-semibold text-gray-600">Active Filters:</span>
+              {searchQuery && (
+                <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-medium">
+                  Search: "{searchQuery}"
+                </span>
+              )}
+              {statusFilter !== 'all' && (
+                <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm font-medium">
+                  Status: {statusFilter}
+                </span>
+              )}
+              {ownershipFilter !== 'all' && (
+                <span className="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-sm font-medium">
+                  Ownership: {ownershipFilter}
+                </span>
+              )}
+              {assignmentFilter !== 'all' && (
+                <span className="px-3 py-1 bg-orange-100 text-orange-700 rounded-full text-sm font-medium">
+                  Assignment: {assignmentFilter}
+                </span>
+              )}
+              <button
+                onClick={() => {
+                  setSearchQuery('');
+                  setStatusFilter('all');
+                  setOwnershipFilter('all');
+                  setAssignmentFilter('all');
+                }}
+                className="px-3 py-1 bg-red-100 text-red-700 rounded-full text-sm font-medium hover:bg-red-200 transition-colors"
+              >
+                Clear All
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
       {showForm && (
         <form onSubmit={editingMachine ? handleUpdate : handleSubmit} className="mt-5 bg-white p-4 md:p-6 rounded-lg shadow-sm border border-gray-200">
@@ -539,20 +702,22 @@ const MachineCategory = () => {
               </div>
             )}
 
-            {/* Quantity */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                {isConsumable ? 'Quantity (with unit)' : 'Quantity'}
-              </label>
-              <input
-                type={isConsumable ? "text" : "number"}
-                placeholder={isConsumable ? "e.g., 100 bags, 50 kg" : "Quantity"}
-                value={formData.quantity}
-                onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
-                required
-                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
+            {/* Quantity - Only for Consumables */}
+            {isConsumable && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Quantity (with unit)
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g., 100 bags, 50 kg"
+                  value={formData.quantity}
+                  onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
+                  required
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            )}
 
             {/* Status */}
             {!isConsumable && (
@@ -603,111 +768,130 @@ const MachineCategory = () => {
 
         {/* Desktop View */}
         <div className="overflow-x-auto">
-          {machines.length === 0 ? (
-            <div className="p-12 text-center text-gray-500">
-              <div className="text-5xl mb-4">📦</div>
-              <p className="text-lg font-semibold">No {isConsumable ? 'consumable items' : isLabEquipment ? 'equipment' : 'machines'} found</p>
-              <p className="text-sm mt-2">Click "Add {isConsumable ? 'Consumable Item' : isEquipment ? 'Equipment' : 'Machine'}" above to get started</p>
-            </div>
-          ) : (
-            <table className="w-full">
-              <thead>
-                <tr className="border-b-2 border-gray-200">
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Name</th>
-                  {!isEquipment && <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Model</th>}
-                  {isBigMachine && <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Plate Number</th>}
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Assigned To</th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Quantity</th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Status</th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {machines.map(m => {
-                  const contractorName = getContractorName(m);
-                  const canAssign = m.status !== 'in-use' && m.status !== 'maintenance';
+          {(() => {
+            const filteredMachines = getFilteredMachines();
+            return filteredMachines.length === 0 ? (
+              <div className="p-12 text-center text-gray-500">
+                <div className="text-5xl mb-4">📦</div>
+                <p className="text-lg font-semibold">No {isConsumable ? 'consumable items' : isLabEquipment ? 'equipment' : 'machines'} found</p>
+                <p className="text-sm mt-2">
+                  {machines.length === 0
+                    ? `Click "Add ${isConsumable ? 'Consumable Item' : isEquipment ? 'Equipment' : 'Machine'}" above to get started`
+                    : 'Try adjusting your filters'}
+                </p>
+              </div>
+            ) : (
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b-2 border-gray-200">
+                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Name</th>
+                    {!isEquipment && <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Model</th>}
+                    {isBigMachine && <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Plate Number</th>}
+                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Assigned To</th>
+                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Quantity</th>
+                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Status</th>
+                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredMachines.map(m => {
+                    const contractorName = getContractorName(m);
+                    const canAssign = m.status !== 'in-use' && m.status !== 'maintenance';
 
-                  return (
-                    <tr key={m._id} className="border-b border-gray-200 hover:bg-gray-50">
-                      <td className="px-4 py-3 font-medium">{m.name}</td>
-                      {!isEquipment && <td className="px-4 py-3">{m.model || 'N/A'}</td>}
-                      {isBigMachine && <td className="px-4 py-3">{m.plateNumber || 'N/A'}</td>}
-                      <td className="px-4 py-3">
-                        {contractorName ? (
-                          <span className="text-purple-600 font-semibold">👷 {contractorName}</span>
-                        ) : m.projectName !== 'Not Assigned' ? (
-                          <span className="text-green-600 font-semibold">
-                            {m.projectName}
-                            {m.projectLocation !== '-' && <span className="text-xs text-gray-500 block">{m.projectLocation}</span>}
-                          </span>
-                        ) : (
-                          <span className="text-red-600 font-semibold">Not Assigned</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3">{m.quantity}</td>
-                      <td className="px-4 py-3">
-                        <span className={`px-3 py-1 rounded-full text-xs font-semibold capitalize ${m.status === 'available' ? 'bg-green-100 text-green-800' :
-                          m.status === 'in-use' ? 'bg-yellow-100 text-yellow-800' :
-                            'bg-red-100 text-red-800'
-                          }`}>
-                          {m.status === 'available' ? '🟢 Available' : m.status === 'in-use' ? '🟡 In Use' : '🔴 Maintenance'}
-                        </span>
-                        {m.assignedAsRental && (
-                          <div className="text-xs text-purple-600 mt-1">
-                            Rental: ₹{m.assignedRentalPerDay}/{m.rentalType === 'perHour' ? 'hr' : 'day'}
-                          </div>
-                        )}
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => handleViewDetails(m)}
-                            className="px-3 py-1.5 bg-purple-500 text-white rounded text-sm hover:bg-purple-600"
-                            title="View Details"
-                          >
-                            👁️
-                          </button>
-                          <button
-                            onClick={() => handleOpenAssignModal(m)}
-                            className={`px-3 py-1.5 rounded text-sm ${canAssign
-                              ? 'bg-blue-500 text-white hover:bg-blue-600'
-                              : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                              }`}
-                            disabled={!canAssign}
-                            title={canAssign ? 'Assign to Project' : `Cannot assign - ${m.status}`}
-                          >
-                            Assign
-                          </button>
-                          {/* Return button - only for rented machines in-use */}
-                          {m.ownershipType === 'rented' && m.status === 'in-use' && (
-                            <button
-                              onClick={() => handleReturn(m)}
-                              className="px-3 py-1.5 bg-orange-500 text-white rounded text-sm hover:bg-orange-600"
-                              title="Return rented machine"
-                            >
-                              Return
-                            </button>
+                    return (
+                      <tr key={m._id} className="border-b border-gray-200 hover:bg-gray-50">
+                        <td className="px-4 py-3 font-medium">{m.name}</td>
+                        {!isEquipment && <td className="px-4 py-3">{m.model || 'N/A'}</td>}
+                        {isBigMachine && <td className="px-4 py-3">{m.plateNumber || 'N/A'}</td>}
+                        <td className="px-4 py-3">
+                          {contractorName ? (
+                            <span className="text-purple-600 font-semibold">👷 {contractorName}</span>
+                          ) : m.projectName !== 'Not Assigned' ? (
+                            <span className="text-green-600 font-semibold">
+                              {m.projectName}
+                              {m.projectLocation !== '-' && <span className="text-xs text-gray-500 block">{m.projectLocation}</span>}
+                            </span>
+                          ) : (
+                            <span className="text-red-600 font-semibold">Not Assigned</span>
                           )}
-                          <button
-                            onClick={() => handleEdit(m)}
-                            className="px-3 py-1.5 bg-yellow-500 text-white rounded text-sm hover:bg-yellow-600"
-                          >
-                            Edit
-                          </button>
-                          <button
-                            onClick={() => handleDelete(m._id)}
-                            className="px-3 py-1.5 bg-red-500 text-white rounded text-sm hover:bg-red-600"
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          )}
+                        </td>
+                        <td className="px-4 py-3">{m.quantity}</td>
+                        <td className="px-4 py-3">
+                          <span className={`px-3 py-1 rounded-full text-xs font-semibold capitalize ${m.status === 'available' ? 'bg-green-100 text-green-800' :
+                            m.status === 'in-use' ? 'bg-yellow-100 text-yellow-800' :
+                              'bg-red-100 text-red-800'
+                            }`}>
+                            {m.status === 'available' ? '🟢 Available' : m.status === 'in-use' ? '🟡 In Use' : '🔴 Maintenance'}
+                          </span>
+                          {m.assignedAsRental && (
+                            <div className="text-xs text-purple-600 mt-1">
+                              Rental: ₹{m.assignedRentalPerDay}/{m.rentalType === 'perHour' ? 'hr' : 'day'}
+                            </div>
+                          )}
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => handleViewDetails(m)}
+                              className="px-3 py-1.5 bg-purple-500 text-white rounded text-sm hover:bg-purple-600"
+                              title="View Details"
+                            >
+                              👁️
+                            </button>
+
+                            {/* Conditional Assign/Unassign Button */}
+                            {m.status === 'in-use' && (m.projectId || m.assignedToContractor) ? (
+                              <button
+                                onClick={() => handleUnassignMachine(m)}
+                                className="px-3 py-1.5 bg-red-500 text-white rounded text-sm hover:bg-red-600"
+                                title="Unassign from project/contractor"
+                              >
+                                Unassign
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => handleOpenAssignModal(m)}
+                                className={`px-3 py-1.5 rounded text-sm ${canAssign
+                                  ? 'bg-blue-500 text-white hover:bg-blue-600'
+                                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                  }`}
+                                disabled={!canAssign}
+                                title={canAssign ? 'Assign to Project' : `Cannot assign - ${m.status}`}
+                              >
+                                Assign
+                              </button>
+                            )}
+                            {/* Return button - only for rented machines in-use */}
+                            {m.ownershipType === 'rented' && m.status === 'in-use' && (
+                              <button
+                                onClick={() => handleReturn(m)}
+                                className="px-3 py-1.5 bg-orange-500 text-white rounded text-sm hover:bg-orange-600"
+                                title="Return rented machine"
+                              >
+                                Return
+                              </button>
+                            )}
+                            <button
+                              onClick={() => handleEdit(m)}
+                              className="px-3 py-1.5 bg-yellow-500 text-white rounded text-sm hover:bg-yellow-600"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => handleDelete(m._id)}
+                              className="px-3 py-1.5 bg-red-500 text-white rounded text-sm hover:bg-red-600"
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            );
+          })()}
         </div>
       </div>
 
@@ -963,6 +1147,7 @@ const MachineCategory = () => {
                         <tr>
                           <th className="px-3 py-2 text-left font-semibold text-gray-600">Assigned To</th>
                           <th className="px-3 py-2 text-left font-semibold text-gray-600">Period</th>
+                          <th className="px-3 py-2 text-left font-semibold text-gray-600">Working Hours</th>
                           <th className="px-3 py-2 text-left font-semibold text-gray-600">Rent Type</th>
                           <th className="px-3 py-2 text-left font-semibold text-gray-600">Total Rent</th>
                         </tr>
@@ -976,6 +1161,86 @@ const MachineCategory = () => {
                           } else {
                             assignedName = contractors.find(c => c._id === log.assignedTo)?.name || 'Contractor';
                           }
+
+                          // Helper to get paused duration for a specific assignment period
+                          const getPausedDurationMs = (assignmentStart, assignmentEnd) => {
+                            let totalPausedMs = 0;
+                            const startMs = new Date(assignmentStart).getTime();
+                            const endMs = assignmentEnd ? new Date(assignmentEnd).getTime() : Date.now();
+
+                            // 1. Sum up completed pauses that fall within this assignment
+                            if (selectedMachine.rentPausedHistory && selectedMachine.rentPausedHistory.length > 0) {
+                              selectedMachine.rentPausedHistory.forEach(pause => {
+                                const pauseStart = new Date(pause.pausedAt).getTime();
+                                const pauseEnd = pause.resumedAt ? new Date(pause.resumedAt).getTime() : endMs;
+
+                                // Check if this pause overlaps with the assignment
+                                if (pauseStart >= startMs && pauseStart < endMs) {
+                                  // Use the lesser of pauseEnd or assignmentEnd to avoid counting future time
+                                  const effectiveEnd = Math.min(pauseEnd, endMs);
+                                  totalPausedMs += (effectiveEnd - pauseStart);
+                                }
+                              });
+                            }
+
+                            // 2. Add current pause if active and within this assignment
+                            if (!assignmentEnd && selectedMachine.isRentPaused && selectedMachine.rentPausedAt) {
+                              // If currently paused, and this is the active assignment (no end date)
+                              // The loop above might handle it if rentPausedHistory isn't updated until resume?
+                              // Usually 'isRentPaused' means there's an open pause NOT in history yet, or it is?
+                              // siteController toggle puts it in history ONLY on resume.
+                              // So we MUST handle current open pause here.
+                              const currentPauseStart = new Date(selectedMachine.rentPausedAt).getTime();
+                              if (currentPauseStart >= startMs) {
+                                totalPausedMs += (Date.now() - currentPauseStart);
+                              }
+                            }
+
+                            return totalPausedMs;
+                          };
+
+                          // Helper to calculate duration
+                          const getDuration = () => {
+                            // If returned, prefer stored duration
+                            if (log.returnedAt && log.durationMinutes) {
+                              return `${(log.durationMinutes / 60).toFixed(2)} hrs`;
+                            }
+
+                            const start = new Date(log.assignedAt);
+                            const end = log.returnedAt ? new Date(log.returnedAt) : null; // Active if null
+
+                            const totalElapsedMs = (end || new Date()) - start;
+                            const pausedMs = getPausedDurationMs(start, end);
+                            const actualMs = Math.max(0, totalElapsedMs - pausedMs);
+
+                            const hours = actualMs / (1000 * 60 * 60);
+                            return `${hours.toFixed(2)} hrs`;
+                          };
+
+                          // Helper to calculate rent
+                          const getRent = () => {
+                            if (log.totalRent) return `₹${log.totalRent}`;
+                            if (!log.rate) return '-';
+
+                            const start = new Date(log.assignedAt);
+                            const end = null; // Active assignment
+
+                            const totalElapsedMs = new Date() - start;
+                            const pausedMs = getPausedDurationMs(start, end);
+                            const actualMs = Math.max(0, totalElapsedMs - pausedMs);
+
+                            let rent = 0;
+                            if (log.rentType === 'perHour') {
+                              // Per Hour calculation (Precise, matching Site Panel)
+                              const hours = actualMs / (1000 * 60 * 60);
+                              rent = hours * log.rate;
+                            } else {
+                              // Per Day calculation
+                              const days = Math.ceil(actualMs / (1000 * 60 * 60 * 24));
+                              rent = days * log.rate;
+                            }
+                            return `₹${Math.round(rent)} (Est.)`;
+                          };
 
                           return (
                             <tr key={index} className="hover:bg-gray-50">
@@ -991,23 +1256,18 @@ const MachineCategory = () => {
                                   <span className="text-xs font-semibold text-green-600 bg-green-100 px-1.5 rounded">Active</span>
                                 )}
                               </td>
+                              <td className="px-3 py-2 text-sm text-gray-700">
+                                {getDuration()}
+                              </td>
                               <td className="px-3 py-2">
                                 {log.rate ? (
                                   <>
                                     <div>₹{log.rate}/{log.rentType === 'perHour' ? 'hr' : 'day'}</div>
-                                    {log.durationMinutes && (
-                                      <div className="text-xs text-gray-500">
-                                        {log.rentType === 'perHour'
-                                          ? `${log.durationMinutes} mins`
-                                          : `${Math.ceil(log.durationMinutes / (60 * 24))} days`
-                                        }
-                                      </div>
-                                    )}
                                   </>
                                 ) : '-'}
                               </td>
                               <td className="px-3 py-2 font-bold text-gray-700">
-                                {log.totalRent ? `₹${log.totalRent}` : '-'}
+                                {getRent()}
                               </td>
                             </tr>
                           );

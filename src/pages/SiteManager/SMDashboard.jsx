@@ -146,9 +146,10 @@ const SMDashboard = () => {
             </div>
             <div className="bg-white/10 backdrop-blur-md p-4 rounded-xl border border-white/20">
               <div className="text-4xl">💰</div>
+              <Link to="/site/wallet-history" className="absolute inset-0 z-0" aria-label="View Wallet History"></Link>
             </div>
           </div>
-          <Link to="/site/wallet-history" className="absolute inset-0 z-0" aria-label="View Wallet History"></Link>
+
 
           {/* Decorative circles */}
           <div className="absolute top-0 right-0 -mt-10 -mr-10 w-40 h-40 bg-white opacity-5 rounded-full blur-3xl"></div>

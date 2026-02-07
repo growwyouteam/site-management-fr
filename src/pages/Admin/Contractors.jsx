@@ -373,7 +373,7 @@ const Contractors = () => {
     const filteredContractors = getFilteredContractors();
 
     return (
-        <div className="p-4 md:p-6 lg:p-8 max-w-7xl mx-auto">
+        <div className="p-4 md:p-6 lg:p-8 max-w-7xl mx-auto overflow-x-hidden">
             <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-6">Contractors</h1>
 
             <div className="flex flex-col sm:flex-row gap-3 mb-6">
@@ -599,7 +599,6 @@ const Contractors = () => {
                         <thead>
                             <tr className="border-b-2 border-gray-200">
                                 <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Name</th>
-                                {/* <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Mobile</th> */}
                                 <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Assigned Project(s)</th>
                                 <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Address</th>
                                 <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Distance</th>
@@ -616,11 +615,10 @@ const Contractors = () => {
                             {filteredContractors.map(contractor => (
                                 <tr key={contractor._id} className="border-b border-gray-200 hover:bg-gray-50">
                                     <td className="px-4 py-3">{contractor.name}</td>
-                                    {/* <td className="px-4 py-3">{contractor.mobile}</td> Original Mobile Column Removed */}
                                     <td className="px-4 py-3">{contractor.assignedProjects?.map(p => p.name).join(', ') || '-'}</td>
-                                    <td className="px-4 py-3">{contractor.address}</td>
-                                    <td className="px-4 py-3">{contractor.distanceValue} {contractor.distanceUnit}</td>
-                                    <td className="px-4 py-3">₹{contractor.expensePerUnit}/{contractor.distanceUnit}</td>
+                                    <td className="px-4 py-3 max-w-[150px] truncate" title={contractor.address}>{contractor.address}</td>
+                                    <td className="px-4 py-3 whitespace-nowrap">{contractor.distanceValue} {contractor.distanceUnit}</td>
+                                    <td className="px-4 py-3 whitespace-nowrap">₹{contractor.expensePerUnit}/{contractor.distanceUnit}</td>
                                     <td className="px-4 py-3">
                                         <button
                                             onClick={() => handleStatusToggle(contractor)}
@@ -634,16 +632,16 @@ const Contractors = () => {
                                             {contractor.status || 'Pending'}
                                         </button>
                                     </td>
-                                    <td className="px-4 py-3">
+                                    <td className="px-4 py-3 whitespace-nowrap">
                                         <span className="text-blue-600 font-semibold">₹{contractorStats[contractor._id]?.totalPayable?.toLocaleString() || 0}</span>
                                     </td>
-                                    <td className="px-4 py-3">
+                                    <td className="px-4 py-3 whitespace-nowrap">
                                         <span className="text-green-600 font-semibold">₹{contractorStats[contractor._id]?.totalPaid?.toLocaleString() || 0}</span>
                                     </td>
-                                    <td className="px-4 py-3">
+                                    <td className="px-4 py-3 whitespace-nowrap">
                                         <span className="text-yellow-600 font-semibold">₹{contractorStats[contractor._id]?.advancePayment?.toLocaleString() || 0}</span>
                                     </td>
-                                    <td className="px-4 py-3">
+                                    <td className="px-4 py-3 whitespace-nowrap">
                                         <span className="text-red-600 font-semibold">₹{contractorStats[contractor._id]?.pendingAmount?.toLocaleString() || 0}</span>
                                     </td>
                                     <td className="px-4 py-3">
@@ -662,13 +660,6 @@ const Contractors = () => {
                                             >
                                                 ✏️
                                             </button>
-                                            {/* <button
-                                                onClick={() => handlePayment(contractor)}
-                                                className="px-3 py-1.5 bg-green-500 text-white rounded text-sm hover:bg-green-600"
-                                                title="Payment"
-                                            >
-                                                💰
-                                            </button> */}
                                         </div>
                                     </td>
                                 </tr>
