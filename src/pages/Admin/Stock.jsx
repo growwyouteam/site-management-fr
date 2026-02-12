@@ -33,6 +33,7 @@ const Stock = () => {
   const [filterProject, setFilterProject] = useState('');
   const [filterDateFrom, setFilterDateFrom] = useState('');
   const [filterDateTo, setFilterDateTo] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
 
   const units = ['kg', 'ltr', 'bags', 'ft', 'meter', 'ton', 'piece', 'box', 'bundle'];
 
@@ -144,29 +145,15 @@ const Stock = () => {
     e.preventDefault();
 
     // Validation
-    if (!formData.projectId) {
-      showToast('Please select a project', 'error');
-      return;
-    }
-    if (!formData.vendorId) {
-      showToast('Please select a vendor', 'error');
-      return;
-    }
-    if (!formData.materialName.trim()) {
-      showToast('Please enter material name', 'error');
-      return;
-    }
-    if (!formData.quantity || formData.quantity <= 0) {
-      showToast('Please enter valid quantity', 'error');
-      return;
-    }
-    if (!formData.unitPrice || formData.unitPrice <= 0) {
-      showToast('Please enter valid unit price', 'error');
-      return;
-    }
-    if (!formData.photo) {
-      showToast('Photo is required for stock entry', 'error');
-      return;
+    if (!formData.projectId) return showToast('Please select a project', 'error');
+    if (!formData.vendorId) return showToast('Please select a vendor', 'error');
+    if (!formData.materialName.trim()) return showToast('Please enter material name', 'error');
+    if (!formData.quantity || formData.quantity <= 0) return showToast('Please enter valid quantity', 'error');
+    if (!formData.unitPrice || formData.unitPrice <= 0) return showToast('Please enter valid unit price', 'error');
+
+    // Check for at least one photo (single or multiple)
+    if ((!formData.photos || formData.photos.length === 0) && !formData.photo) {
+      return showToast('At least one photo is required', 'error');
     }
 
     try {
@@ -180,11 +167,16 @@ const Stock = () => {
       submitData.append('unit', formData.unit);
       submitData.append('quantity', formData.quantity);
       submitData.append('unitPrice', formData.unitPrice);
-      if (formData.photo) {
+      if (formData.remarks) submitData.append('remarks', formData.remarks);
+
+      // Handle Multiple Photos
+      if (formData.photos && formData.photos.length > 0) {
+        Array.from(formData.photos).forEach(file => {
+          submitData.append('photos', file);
+        });
+      } else if (formData.photo) {
+        // Fallback Single
         submitData.append('photo', formData.photo);
-      }
-      if (formData.remarks) {
-        submitData.append('remarks', formData.remarks);
       }
 
       const response = await optimizedApi.post('/admin/stocks', submitData, {
@@ -202,9 +194,11 @@ const Stock = () => {
           quantity: '',
           unitPrice: '',
           photo: null,
+          photos: [], // Reset photos
           remarks: ''
         });
         setPhotoPreview('');
+        setPhotoPreviews([]); // Reset previews
         // Invalidate cache and refresh data
         optimizedApi.invalidateCache('stocks');
         fetchData();
@@ -242,15 +236,13 @@ const Stock = () => {
       unit: stock.unit,
       quantity: stock.quantity,
       unitPrice: stock.unitPrice,
-      photo: stock.photo || '',
+      photo: stock.photo || '', // Existing main photo
+      photos: [], // We don't load file objects for existing photos, only URLs are stored in stock.photos
       remarks: stock.remarks || ''
     });
+    // Set previews for existing photos
+    setPhotoPreviews(stock.photos || (stock.photo ? [stock.photo] : []));
     setShowForm(true);
-  };
-
-  const handleViewDetail = (stock) => {
-    setSelectedStock(stock);
-    setShowDetail(true);
   };
 
   const handleUpdate = async (e) => {
@@ -259,11 +251,27 @@ const Stock = () => {
 
     try {
       setIsSubmitting(true);
-      const response = await optimizedApi.put(`/admin/stocks/${editingStock._id}`, {
-        ...formData,
-        quantity: Number(formData.quantity),
-        unitPrice: Number(formData.unitPrice),
-        totalPrice: Number(formData.quantity) * Number(formData.unitPrice)
+
+      // Use FormData for update to support file upload
+      const submitData = new FormData();
+      submitData.append('projectId', formData.projectId);
+      submitData.append('vendorId', formData.vendorId);
+      submitData.append('materialName', formData.materialName);
+      submitData.append('unit', formData.unit);
+      submitData.append('quantity', formData.quantity);
+      submitData.append('unitPrice', formData.unitPrice);
+      submitData.append('totalPrice', Number(formData.quantity) * Number(formData.unitPrice));
+      if (formData.remarks) submitData.append('remarks', formData.remarks);
+
+      // Handle New Photos
+      if (formData.photos && formData.photos.length > 0) {
+        Array.from(formData.photos).forEach(file => {
+          submitData.append('photos', file);
+        });
+      }
+
+      const response = await optimizedApi.put(`/admin/stocks/${editingStock._id}`, submitData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
       });
 
       if (response.data.success) {
@@ -278,8 +286,10 @@ const Stock = () => {
           quantity: '',
           unitPrice: '',
           photo: '',
+          photos: [],
           remarks: ''
         });
+        setPhotoPreviews([]);
         optimizedApi.invalidateCache('stocks');
         fetchData();
       }
@@ -291,22 +301,53 @@ const Stock = () => {
     }
   };
 
-  const handlePhoto = (file) => {
-    if (!file) {
-      setFormData(prev => ({ ...prev, photo: null }));
-      setPhotoPreview('');
+  const [photoPreviews, setPhotoPreviews] = useState([]);
+
+  const handlePhoto = (files) => {
+    if (!files || files.length === 0) {
       return;
     }
 
-    // Store file object for FormData
-    setFormData(prev => ({ ...prev, photo: file }));
+    // Convert FileList to Array
+    const fileArray = Array.from(files);
 
-    // Create preview
-    const reader = new FileReader();
-    reader.onload = () => {
-      setPhotoPreview(reader.result);
-    };
-    reader.readAsDataURL(file);
+    // Update form data - append new files to existing photos
+    setFormData(prev => {
+      const currentPhotos = Array.isArray(prev.photos) ? prev.photos : [];
+      const updatedPhotos = [...currentPhotos, ...fileArray];
+      return {
+        ...prev,
+        photos: updatedPhotos,
+        photo: updatedPhotos[0] // Update legacy field with first photo
+      };
+    });
+
+    // Generate previews and append to existing previews
+    const newPreviews = fileArray.map(file => URL.createObjectURL(file));
+    setPhotoPreviews(prev => [...prev, ...newPreviews]);
+  };
+
+  const handleRemovePhoto = (index) => {
+    setFormData(prev => {
+      const currentPhotos = [...(prev.photos || [])];
+      currentPhotos.splice(index, 1);
+      return {
+        ...prev,
+        photos: currentPhotos,
+        photo: currentPhotos[0]
+      };
+    });
+
+    setPhotoPreviews(prev => {
+      const currentPreviews = [...prev];
+      currentPreviews.splice(index, 1);
+      return currentPreviews;
+    });
+  };
+
+  const handleViewDetail = (stock) => {
+    setSelectedStock(stock);
+    setShowDetail(true);
   };
 
   // Filter stocks based on project and date
@@ -329,6 +370,19 @@ const Stock = () => {
       const toDate = new Date(filterDateTo);
       toDate.setHours(23, 59, 59, 999); // Include entire end date
       filtered = filtered.filter(s => new Date(s.createdAt) <= toDate);
+    }
+
+    // Filter by search query
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(s =>
+        s.materialName?.toLowerCase().includes(query) ||
+        s.remarks?.toLowerCase().includes(query) ||
+        (typeof s.projectId === 'object' && s.projectId.name?.toLowerCase().includes(query)) ||
+        (typeof s.vendorId === 'object' && s.vendorId.name?.toLowerCase().includes(query)) ||
+        (!s.projectId && projects.find(p => p._id === s.projectId)?.name?.toLowerCase().includes(query)) || // fallback check
+        (!s.vendorId && vendors.find(v => v._id === s.vendorId)?.name?.toLowerCase().includes(query))
+      );
     }
 
     return filtered;
@@ -368,7 +422,17 @@ const Stock = () => {
       {/* Filters Section */}
       <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 mb-4">
         <h3 className="text-sm font-semibold text-gray-700 mb-3">Filters</h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="md:col-span-1">
+            <label className="block text-sm font-medium text-gray-700 mb-2">Search</label>
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search material, vendor..."
+              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Project</label>
             <select
@@ -401,12 +465,13 @@ const Stock = () => {
             />
           </div>
         </div>
-        {(filterProject || filterDateFrom || filterDateTo) && (
+        {(filterProject || filterDateFrom || filterDateTo || searchQuery) && (
           <button
             onClick={() => {
               setFilterProject('');
               setFilterDateFrom('');
               setFilterDateTo('');
+              setSearchQuery('');
             }}
             className="mt-3 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 text-sm font-medium"
           >
@@ -495,22 +560,41 @@ const Stock = () => {
             </div>
           </div>
           <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-2">Photo *</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Photos * (Upload Multiple)</label>
             <input
               type="file"
               accept="image/*"
-              onChange={(e) => handlePhoto(e.target.files?.[0])}
+              multiple // Allow multiple files
+              onChange={(e) => handlePhoto(e.target.files)}
               className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              required
             />
-            {photoPreview && (
+
+            {/* Gallery Preview */}
+            {photoPreviews && photoPreviews.length > 0 ? (
+              <div className="mt-3 grid grid-cols-3 md:grid-cols-5 gap-2">
+                {photoPreviews.map((src, index) => (
+                  <div key={index} className="relative h-24 border rounded overflow-hidden group">
+                    <img src={src} alt={`Preview ${index}`} className="w-full h-full object-cover" />
+                    <button
+                      type="button"
+                      onClick={() => handleRemovePhoto(index)}
+                      className="absolute top-0 right-0 bg-red-500 text-white w-6 h-6 flex items-center justify-center rounded-bl opacity-75 hover:opacity-100 transition-opacity"
+                      title="Remove Photo"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : photoPreview ? (
+              // Legacy single preview fallback
               <div className="mt-2">
                 <img src={photoPreview} alt="Preview" className="h-24 w-24 object-cover rounded border" />
-                <p className="text-xs text-green-600 mt-1">✓ Photo selected</p>
               </div>
-            )}
-            {!photoPreview && (
-              <p className="text-xs text-red-600 mt-1">Photo is required</p>
+            ) : null}
+
+            {!photoPreviews?.length && !photoPreview && (
+              <p className="text-xs text-red-600 mt-1">At least one photo is required</p>
             )}
           </div>
           <div className="mb-4">
@@ -669,15 +753,26 @@ const Stock = () => {
               </div>
 
               <div className="space-y-4">
-                {selectedStock.photo ? (
-                  <div className="flex justify-center bg-gray-100 p-4 rounded-lg">
-                    <img src={selectedStock.photo} alt="Stock" className="max-w-full h-80 object-contain rounded border-2 border-gray-300 shadow-lg" />
-                  </div>
-                ) : (
-                  <div className="flex justify-center bg-gray-100 p-8 rounded-lg">
-                    <p className="text-gray-400 text-lg">📷 No photo available</p>
-                  </div>
-                )}
+                <div className="mb-4">
+                  {/* Photos Gallery */}
+                  {selectedStock.photos && selectedStock.photos.length > 0 ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+                      {selectedStock.photos.map((photo, idx) => (
+                        <div key={idx} className="bg-gray-100 p-2 rounded-lg">
+                          <img src={photo} alt={`Stock ${idx}`} className="w-full h-48 object-contain rounded border border-gray-300" />
+                        </div>
+                      ))}
+                    </div>
+                  ) : selectedStock.photo ? (
+                    <div className="flex justify-center bg-gray-100 p-4 rounded-lg">
+                      <img src={selectedStock.photo} alt="Stock" className="max-w-full h-80 object-contain rounded border-2 border-gray-300 shadow-lg" />
+                    </div>
+                  ) : (
+                    <div className="flex justify-center bg-gray-100 p-8 rounded-lg">
+                      <p className="text-gray-400 text-lg">📷 No photo available</p>
+                    </div>
+                  )}
+                </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>

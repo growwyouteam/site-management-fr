@@ -724,9 +724,26 @@ const Payments = () => {
                                             className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
                                         >
                                             <option value="">Select {modalData.paymentType}</option>
-                                            {getEntityList().map(item => (
-                                                <option key={item._id} value={item._id}>{item.name}</option>
-                                            ))}
+                                            {getEntityList().map(item => {
+                                                let displayText = item.name;
+
+                                                // Add remaining amount to display text
+                                                if (modalData.paymentType === 'vendor') {
+                                                    const stats = getVendorStats(item);
+                                                    displayText = `${item.name} (Remaining: ₹${stats.pendingAmount.toLocaleString()})`;
+                                                } else if (modalData.paymentType === 'contractor') {
+                                                    const stats = contractorStats[item._id] || {
+                                                        totalPayable: (item.distanceValue || 0) * (item.expensePerUnit || 0),
+                                                        totalPaid: 0,
+                                                        pendingAmount: (item.distanceValue || 0) * (item.expensePerUnit || 0)
+                                                    };
+                                                    displayText = `${item.name} (Remaining: ₹${stats.pendingAmount.toLocaleString()})`;
+                                                }
+
+                                                return (
+                                                    <option key={item._id} value={item._id}>{displayText}</option>
+                                                );
+                                            })}
                                         </select>
                                     </div>
                                 </div>

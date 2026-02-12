@@ -22,6 +22,7 @@ const Expenses = () => {
     creditorId: ''
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     fetchProjects();
@@ -237,12 +238,21 @@ const Expenses = () => {
     });
   };
 
-  const filteredExpenses = selectedProject === 'all'
-    ? expenses
-    : expenses.filter(e => {
-      const pId = typeof e.projectId === 'object' ? e.projectId?._id : e.projectId;
-      return pId === selectedProject;
-    });
+  const filteredExpenses = expenses.filter(e => {
+    const pId = typeof e.projectId === 'object' ? e.projectId?._id : e.projectId;
+    const matchesProject = selectedProject === 'all' || pId === selectedProject;
+
+    if (!searchQuery) return matchesProject;
+
+    const query = searchQuery.toLowerCase();
+    const matchesSearch =
+      e.name?.toLowerCase().includes(query) ||
+      e.voucherNumber?.toLowerCase().includes(query) ||
+      e.category?.toLowerCase().includes(query) ||
+      e.amount?.toString().includes(query);
+
+    return matchesProject && matchesSearch;
+  });
 
   return (
     <div className="p-4 md:p-6 lg:p-8 max-w-7xl mx-auto">
@@ -255,6 +265,14 @@ const Expenses = () => {
         >
           {showForm ? 'Cancel' : 'Add Expense'}
         </button>
+
+        <input
+          type="text"
+          placeholder="Search expenses..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 w-full sm:w-64"
+        />
 
         <select
           value={selectedProject}

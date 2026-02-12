@@ -16,6 +16,8 @@ const Projects = () => {
     roadDistanceUnit: 'km'
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+
   const [editingProject, setEditingProject] = useState(null);
 
   useEffect(() => {
@@ -29,62 +31,52 @@ const Projects = () => {
         setProjects(response.data.data);
       }
     } catch (error) {
-      showToast('Failed to fetch projects', 'error');
       console.error('Error fetching projects:', error);
+      showToast('Failed to fetch projects', 'error');
     }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (isSubmitting) return;
-
     try {
       setIsSubmitting(true);
-      const url = editingProject
-        ? `/admin/projects/${editingProject._id}`
-        : '/admin/projects';
-
-      const method = editingProject ? 'put' : 'post';
-
-      const response = await api[method](url, {
-        ...formData,
-        budget: Number(formData.budget) || 0,
-        status: editingProject ? editingProject.status : 'running'
-      });
-      if (response.data.success) {
-        showToast(`Project ${editingProject ? 'updated' : 'created'} successfully`, 'success');
-        setShowForm(false);
-        setEditingProject(null);
-        setFormData({
-          name: '',
-          location: '',
-          budget: '',
-          startDate: '',
-          endDate: '',
-          roadDistanceValue: '',
-          roadDistanceUnit: 'km'
-        });
-        fetchProjects();
+      if (editingProject) {
+        const response = await api.put(`/admin/projects/${editingProject._id}`, formData);
+        if (response.data.success) {
+          showToast('Project updated successfully', 'success');
+          setEditingProject(null);
+          setShowForm(false);
+          resetForm();
+          fetchProjects();
+        }
+      } else {
+        const response = await api.post('/admin/projects', formData);
+        if (response.data.success) {
+          showToast('Project created successfully', 'success');
+          setShowForm(false);
+          resetForm();
+          fetchProjects();
+        }
       }
     } catch (error) {
-      showToast(error.response?.data?.error || `Failed to ${editingProject ? 'update' : 'create'} project`, 'error');
-      console.error(`Error ${editingProject ? 'updating' : 'creating'} project:`, error);
+      console.error('Error saving project:', error);
+      showToast(error.response?.data?.error || 'Failed to save project', 'error');
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const handleDelete = async (id) => {
-    if (!confirm('Delete this project? This will remove all associated data.')) return;
+    if (!window.confirm('Are you sure you want to delete this project?')) return;
     try {
       const response = await api.delete(`/admin/projects/${id}`);
       if (response.data.success) {
-        showToast('Project deleted', 'success');
+        showToast('Project deleted successfully', 'success');
         fetchProjects();
       }
     } catch (error) {
-      showToast(error.response?.data?.error || 'Failed to delete project', 'error');
       console.error('Error deleting project:', error);
+      showToast('Failed to delete project', 'error');
     }
   };
 
@@ -100,12 +92,17 @@ const Projects = () => {
       roadDistanceUnit: project.roadDistanceUnit || 'km'
     });
     setShowForm(true);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+  const getFilteredProjects = () => {
+    if (!searchQuery.trim()) return projects;
+    const query = searchQuery.toLowerCase();
+    return projects.filter(p =>
+      p.name.toLowerCase().includes(query) ||
+      p.location.toLowerCase().includes(query)
+    );
   };
 
   const resetForm = () => {
-    setShowForm(!showForm);
-    setEditingProject(null);
     setFormData({
       name: '',
       location: '',
@@ -115,17 +112,30 @@ const Projects = () => {
       roadDistanceValue: '',
       roadDistanceUnit: 'km'
     });
+    setShowForm(!showForm);
   };
+
+  const filteredProjects = getFilteredProjects();
 
   return (
     <div className="p-4 md:p-6 lg:p-8 max-w-7xl mx-auto">
       <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-6">Projects</h1>
-      <button
-        onClick={resetForm}
-        className="px-5 py-2.5 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors font-medium"
-      >
-        {showForm ? 'Cancel' : 'Create New Project'}
-      </button>
+
+      <div className="flex flex-col sm:flex-row gap-3 mb-6">
+        <button
+          onClick={resetForm}
+          className="px-5 py-2.5 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors font-medium"
+        >
+          {showForm ? 'Cancel' : 'Create New Project'}
+        </button>
+        <input
+          type="text"
+          placeholder="Search projects..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 w-full sm:w-64"
+        />
+      </div>
 
       {showForm && (
         <form onSubmit={handleSubmit} className="mt-5 bg-white p-4 md:p-6 rounded-lg shadow-sm border border-gray-200">
@@ -216,8 +226,9 @@ const Projects = () => {
         </form>
       )}
 
+
       <div className="mt-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {projects.map(p => (
+        {filteredProjects.map(p => (
           <div key={p._id} className="bg-white p-5 rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
             <div className="flex justify-between items-start mb-4">
               <h3 className="text-lg font-bold text-gray-900 flex-1">{p.name}</h3>
@@ -267,12 +278,14 @@ const Projects = () => {
         ))}
       </div>
 
-      {projects.length === 0 && !showForm && (
-        <div className="mt-6 text-center p-12 bg-white rounded-lg shadow-sm border border-gray-200">
-          <p className="text-gray-400 text-lg">No projects yet. Create your first project!</p>
-        </div>
-      )}
-    </div>
+      {
+        projects.length === 0 && !showForm && (
+          <div className="mt-6 text-center p-12 bg-white rounded-lg shadow-sm border border-gray-200">
+            <p className="text-gray-400 text-lg">No projects yet. Create your first project!</p>
+          </div>
+        )
+      }
+    </div >
   );
 };
 

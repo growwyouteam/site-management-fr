@@ -16,6 +16,7 @@ const BankDetails = () => {
     });
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [showTransferModal, setShowTransferModal] = useState(false);
+    const [showWithdrawModal, setShowWithdrawModal] = useState(false);
 
     useEffect(() => {
         fetchBanks();
@@ -291,6 +292,105 @@ const BankDetails = () => {
         );
     };
 
+    const WithdrawModal = ({ onClose, onSuccess, banks }) => {
+        const [withdrawData, setWithdrawData] = useState({
+            bankId: '',
+            amount: '',
+            date: new Date().toISOString().split('T')[0],
+            description: ''
+        });
+        const [loading, setLoading] = useState(false);
+
+        const handleSubmit = async (e) => {
+            e.preventDefault();
+            setLoading(true);
+            try {
+                // Use the generic /transaction endpoint
+                // Type 'debit' = Withdrawal
+                const response = await optimizedApi.post('/admin/accounts/transaction', {
+                    ...withdrawData,
+                    type: 'debit',
+                    category: 'other',
+                    paymentMode: 'cash' // Withdrawal means cash out
+                });
+
+                if (response.data.success) {
+                    showToast('Cash withdrawal successful', 'success');
+                    onSuccess();
+                }
+            } catch (error) {
+                showToast(error.response?.data?.error || 'Withdrawal failed', 'error');
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        return (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+                <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden animate-fade-in-down">
+                    <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+                        <h2 className="text-xl font-bold text-gray-800">💵 Cash Withdrawal</h2>
+                        <button onClick={onClose} className="text-gray-400 hover:text-gray-600">✕</button>
+                    </div>
+                    <form onSubmit={handleSubmit} className="p-6 space-y-4">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Select Bank</label>
+                            <select
+                                required
+                                value={withdrawData.bankId}
+                                onChange={(e) => setWithdrawData({ ...withdrawData, bankId: e.target.value })}
+                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 outline-none"
+                            >
+                                <option value="">Select Bank</option>
+                                {banks.map(b => (
+                                    <option key={b._id} value={b._id}>{b.bankName} - {b.holderName}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Amount</label>
+                            <input
+                                type="number"
+                                required
+                                value={withdrawData.amount}
+                                onChange={(e) => setWithdrawData({ ...withdrawData, amount: e.target.value })}
+                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 outline-none"
+                                placeholder="0.00"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
+                            <input
+                                type="date"
+                                required
+                                value={withdrawData.date}
+                                onChange={(e) => setWithdrawData({ ...withdrawData, date: e.target.value })}
+                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 outline-none"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                            <input
+                                type="text"
+                                value={withdrawData.description}
+                                onChange={(e) => setWithdrawData({ ...withdrawData, description: e.target.value })}
+                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 outline-none"
+                                placeholder="Remarks (Optional)"
+                            />
+                        </div>
+                        <button
+                            type="submit"
+                            disabled={loading}
+                            className="w-full bg-red-600 text-white py-2 rounded-lg hover:bg-red-700 transition-colors font-bold shadow-md"
+                        >
+                            {loading ? 'Processing...' : 'Withdraw Cash'}
+                        </button>
+                    </form>
+                </div>
+            </div>
+        );
+    };
+
     // Function to mask account number (show only last 4 digits)
     const maskAccountNumber = (accNo) => {
         if (!accNo) return '';
@@ -304,7 +404,7 @@ const BankDetails = () => {
         <div className="p-4 md:p-6 lg:p-8 max-w-7xl mx-auto">
             <div className="flex justify-between items-center mb-6 gap-3">
                 <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Bank Details</h1>
-                <div className="flex gap-3">
+                <div className="flex gap-3 flex-wrap">
                     <button
                         onClick={() => setShowDepositModal(true)}
                         className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2 font-medium shadow-md"
@@ -313,11 +413,18 @@ const BankDetails = () => {
                         Deposit
                     </button>
                     <button
+                        onClick={() => setShowWithdrawModal(true)}
+                        className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2 font-medium shadow-md"
+                    >
+                        <span className="text-xl font-bold">↑</span>
+                        Withdraw
+                    </button>
+                    <button
                         onClick={() => setShowTransferModal(true)}
                         className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors flex items-center gap-2 font-medium shadow-md"
                     >
                         <span className="text-xl font-bold">⇄</span>
-                        Bank Transfer
+                        Transfer
                     </button>
                     <button
                         onClick={() => setShowModal(true)}
@@ -502,6 +609,16 @@ const BankDetails = () => {
                     onClose={() => setShowDepositModal(false)}
                     onSuccess={() => {
                         setShowDepositModal(false);
+                        fetchBanks();
+                    }}
+                />
+            )}
+            {showWithdrawModal && (
+                <WithdrawModal
+                    banks={banks}
+                    onClose={() => setShowWithdrawModal(false)}
+                    onSuccess={() => {
+                        setShowWithdrawModal(false);
                         fetchBanks();
                     }}
                 />

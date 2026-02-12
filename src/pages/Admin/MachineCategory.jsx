@@ -12,6 +12,7 @@ const MachineCategory = () => {
   const [showForm, setShowForm] = useState(false);
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
+  const [activeTab, setActiveTab] = useState('overview');
   const [itemNames, setItemNames] = useState([]); // Store item names for dropdown
   const [loadingItemNames, setLoadingItemNames] = useState(false);
   const [selectedMachine, setSelectedMachine] = useState(null);
@@ -190,6 +191,8 @@ const MachineCategory = () => {
       projectId: machine.projectId?._id || machine.projectId || ''
     });
     setSelectedFile(null); // Reset selected file on edit init
+    setMaintenanceCost('');
+    setMaintenanceDescription('');
     setShowForm(true);
   };
 
@@ -218,7 +221,12 @@ const MachineCategory = () => {
       const finalStatus = isConsumable ? 'available' : formData.status;
       data.append('status', finalStatus);
 
-      // If status is available, clear projectId/contractor assignment
+      // Append maintenance exit data if applicable
+      if (editingMachine && editingMachine.status === 'maintenance' && finalStatus === 'available') {
+        if (maintenanceCost) data.append('maintenanceCost', maintenanceCost);
+        if (maintenanceDescription) data.append('maintenanceDescription', maintenanceDescription);
+      }
+
       // If status is available, clear projectId/contractor assignment
       if (finalStatus === 'available') {
         data.append('projectId', '');
@@ -337,6 +345,7 @@ const MachineCategory = () => {
 
   const handleViewDetails = (machine) => {
     setSelectedMachine(machine);
+    setActiveTab('overview');
     setShowDetailModal(true);
   };
 
@@ -349,23 +358,39 @@ const MachineCategory = () => {
     setShowAssignModal(true);
   };
 
-  const handleUnassignMachine = async (machine) => {
-    const confirmMsg = `Unassign ${machine.name}?\n\nThis will:\n- Set status to "Available"\n- Clear project/contractor assignment\n- Clear rental details`;
+  const [showUnassignModal, setShowUnassignModal] = useState(false);
+  const [unassignTargetMachine, setUnassignTargetMachine] = useState(null);
 
-    if (!confirm(confirmMsg)) return;
+  // Maintenance transition
+  const [maintenanceCost, setMaintenanceCost] = useState('');
+  const [maintenanceDescription, setMaintenanceDescription] = useState('');
 
+  const handleUnassignMachine = (machine) => {
+    setUnassignTargetMachine(machine);
+    setShowUnassignModal(true);
+  };
+
+  const confirmUnassign = async (newStatus) => {
     try {
-      const response = await api.put(`/admin/machines/${machine._id}`, {
-        status: 'available',
-        projectId: '',
-        assignedToContractor: '',
+      const updateData = {
+        status: newStatus, // 'available' or 'maintenance'
+        projectId: null,
+        assignedToContractor: null,
         assignedAsRental: false,
         assignedRentalPerDay: 0,
         rentalType: 'perDay'
-      });
+      };
+
+      if (newStatus === 'maintenance') {
+        updateData.remarks = 'Unassigned directly to Maintenance';
+      }
+
+      const response = await api.put(`/admin/machines/${unassignTargetMachine._id}`, updateData);
 
       if (response.data.success) {
-        showToast('Machine unassigned successfully', 'success');
+        showToast(`Machine marked as ${newStatus}`, 'success');
+        setShowUnassignModal(false);
+        setUnassignTargetMachine(null);
         fetchMachines();
       }
     } catch (error) {
@@ -735,6 +760,35 @@ const MachineCategory = () => {
               </div>
             )}
 
+            {/* Maintenance Exit Fields */}
+            {editingMachine && editingMachine.status === 'maintenance' && formData.status === 'available' && (
+              <div className="md:col-span-2 bg-yellow-50 p-4 rounded-lg border border-yellow-200">
+                <h4 className="font-semibold text-yellow-800 mb-3">Ending Maintenance</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Maintenance Cost (₹)</label>
+                    <input
+                      type="number"
+                      value={maintenanceCost}
+                      onChange={(e) => setMaintenanceCost(e.target.value)}
+                      placeholder="Enter cost involved"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Description/Remarks</label>
+                    <input
+                      type="text"
+                      value={maintenanceDescription}
+                      onChange={(e) => setMaintenanceDescription(e.target.value)}
+                      placeholder="What was fixed?"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Project Dropdown */}
             {/* <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Assign to Project (Optional)</label>
@@ -1042,239 +1096,291 @@ const MachineCategory = () => {
               <button onClick={() => setShowDetailModal(false)} className="text-gray-500 hover:text-gray-700 text-xl">✕</button>
             </div>
 
-            <div className="p-6 space-y-4">
-              {/* Basic Info */}
-              <div className="grid grid-cols-2 gap-4">
-                {selectedMachine.model && (
-                  <div>
-                    <div className="text-sm text-gray-500">Model</div>
-                    <div className="font-medium">{selectedMachine.model}</div>
-                  </div>
-                )}
-                {selectedMachine.plateNumber && (
-                  <div>
-                    <div className="text-sm text-gray-500">Plate Number</div>
-                    <div className="font-medium">{selectedMachine.plateNumber}</div>
-                  </div>
-                )}
-                <div>
-                  <div className="text-sm text-gray-500">Quantity</div>
-                  <div className="font-medium">{selectedMachine.quantity}</div>
-                </div>
-                <div>
-                  <div className="text-sm text-gray-500">Status</div>
-                  <div className="font-medium capitalize">{selectedMachine.status}</div>
-                </div>
-                {selectedMachine.ownershipType && (
-                  <div>
-                    <div className="text-sm text-gray-500">Ownership</div>
-                    <div className="font-medium capitalize">{selectedMachine.ownershipType}</div>
-                  </div>
-                )}
-              </div>
+            {/* Tabs */}
+            <div className="flex border-b border-gray-200">
+              <button
+                className={`flex-1 py-3 text-sm font-medium ${activeTab === 'overview' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+                onClick={() => setActiveTab('overview')}
+              >
+                Overview
+              </button>
+              <button
+                className={`flex-1 py-3 text-sm font-medium ${activeTab === 'assignment' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+                onClick={() => setActiveTab('assignment')}
+              >
+                Assignment History
+              </button>
+              <button
+                className={`flex-1 py-3 text-sm font-medium ${activeTab === 'maintenance' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+                onClick={() => setActiveTab('maintenance')}
+              >
+                Maintenance History
+              </button>
+            </div>
 
-              {/* Assignment Info */}
-              <div className="border-t pt-4">
-                <h4 className="font-bold text-gray-900 mb-3">Assignment Information</h4>
-                <div className="space-y-3">
-                  {getContractorName(selectedMachine) ? (
-                    <div className="p-3 bg-purple-50 rounded-lg">
-                      <div className="text-sm text-purple-600 font-medium">Assigned to Contractor</div>
-                      <div className="font-bold text-purple-900">👷 {getContractorName(selectedMachine)}</div>
+            <div className="p-6">
+              {/* Overview Tab */}
+              {activeTab === 'overview' && (
+                <div className="space-y-4">
+                  {/* Basic Info */}
+                  <div className="grid grid-cols-2 gap-4">
+                    {selectedMachine.model && (
+                      <div>
+                        <div className="text-sm text-gray-500">Model</div>
+                        <div className="font-medium">{selectedMachine.model}</div>
+                      </div>
+                    )}
+                    {selectedMachine.plateNumber && (
+                      <div>
+                        <div className="text-sm text-gray-500">Plate Number</div>
+                        <div className="font-medium">{selectedMachine.plateNumber}</div>
+                      </div>
+                    )}
+                    <div>
+                      <div className="text-sm text-gray-500">Quantity</div>
+                      <div className="font-medium">{selectedMachine.quantity}</div>
                     </div>
-                  ) : selectedMachine.projectName !== 'Not Assigned' ? (
-                    <div className="p-3 bg-green-50 rounded-lg">
-                      <div className="text-sm text-green-600 font-medium">Assigned to Project</div>
-                      <div className="font-bold text-green-900">{selectedMachine.projectName}</div>
-                      {selectedMachine.projectLocation !== '-' && (
-                        <div className="text-sm text-green-700">📍 {selectedMachine.projectLocation}</div>
+                    <div>
+                      <div className="text-sm text-gray-500">Status</div>
+                      <div className="font-medium capitalize">{selectedMachine.status}</div>
+                    </div>
+                    {selectedMachine.ownershipType && (
+                      <div>
+                        <div className="text-sm text-gray-500">Ownership</div>
+                        <div className="font-medium capitalize">{selectedMachine.ownershipType}</div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Assignment Info */}
+                  <div className="border-t pt-4">
+                    <h4 className="font-bold text-gray-900 mb-3">Current Assignment</h4>
+                    <div className="space-y-3">
+                      {getContractorName(selectedMachine) ? (
+                        <div className="p-3 bg-purple-50 rounded-lg">
+                          <div className="text-sm text-purple-600 font-medium">Assigned to Contractor</div>
+                          <div className="font-bold text-purple-900">👷 {getContractorName(selectedMachine)}</div>
+                        </div>
+                      ) : selectedMachine.projectName !== 'Not Assigned' ? (
+                        <div className="p-3 bg-green-50 rounded-lg">
+                          <div className="text-sm text-green-600 font-medium">Assigned to Project</div>
+                          <div className="font-bold text-green-900">{selectedMachine.projectName}</div>
+                          {selectedMachine.projectLocation !== '-' && (
+                            <div className="text-sm text-green-700">📍 {selectedMachine.projectLocation}</div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="p-3 bg-gray-50 rounded-lg">
+                          <div className="text-gray-500">Not assigned to any project or contractor</div>
+                        </div>
+                      )}
+
+                      {selectedMachine.assignedAt && (
+                        <div>
+                          <div className="text-sm text-gray-500">Assignment Date/Time</div>
+                          <div className="font-medium">
+                            {new Date(selectedMachine.assignedAt).toLocaleString('en-IN', {
+                              day: '2-digit',
+                              month: 'short',
+                              year: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })}
+                          </div>
+                        </div>
+                      )}
+
+                      {selectedMachine.assignedAsRental && (
+                        <div className="p-3 bg-yellow-50 rounded-lg border border-yellow-200">
+                          <div className="text-sm text-yellow-700 font-medium">Rental Information</div>
+                          <div className="font-bold text-yellow-900">
+                            ₹{selectedMachine.assignedRentalPerDay} / {selectedMachine.rentalType === 'perHour' ? 'Hour' : 'Day'}
+                          </div>
+                          <div className="text-xs text-yellow-700 mt-1">
+                            This machine is generating rental income
+                          </div>
+                        </div>
                       )}
                     </div>
-                  ) : (
-                    <div className="p-3 bg-gray-50 rounded-lg">
-                      <div className="text-gray-500">Not assigned to any project or contractor</div>
+                  </div>
+
+                  {/* Photo */}
+                  {selectedMachine.machinePhoto && (
+                    <div className="border-t pt-4">
+                      <h4 className="font-bold text-gray-900 mb-3">Photo</h4>
+                      <img
+                        src={selectedMachine.machinePhoto}
+                        alt={selectedMachine.name}
+                        className="w-full max-h-64 object-contain rounded-lg border"
+                      />
                     </div>
                   )}
-
-                  {selectedMachine.assignedAt && (
-                    <div>
-                      <div className="text-sm text-gray-500">Assignment Date/Time</div>
-                      <div className="font-medium">
-                        {new Date(selectedMachine.assignedAt).toLocaleString('en-IN', {
-                          day: '2-digit',
-                          month: 'short',
-                          year: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit'
-                        })}
-                      </div>
-                    </div>
-                  )}
-
-                  {selectedMachine.assignedAsRental && (
-                    <div className="p-3 bg-yellow-50 rounded-lg border border-yellow-200">
-                      <div className="text-sm text-yellow-700 font-medium">Rental Information</div>
-                      <div className="font-bold text-yellow-900">
-                        ₹{selectedMachine.assignedRentalPerDay} / {selectedMachine.rentalType === 'perHour' ? 'Hour' : 'Day'}
-                      </div>
-                      <div className="text-xs text-yellow-700 mt-1">
-                        This machine is generating rental income
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Photo */}
-              {selectedMachine.machinePhoto && (
-                <div className="border-t pt-4">
-                  <h4 className="font-bold text-gray-900 mb-3">Photo</h4>
-                  <img
-                    src={selectedMachine.machinePhoto}
-                    alt={selectedMachine.name}
-                    className="w-full max-h-64 object-contain rounded-lg border"
-                  />
                 </div>
               )}
 
-              {/* Assignment History */}
-              {selectedMachine.assignmentHistory && selectedMachine.assignmentHistory.length > 0 && (
-                <div className="border-t pt-4">
+              {/* Assignment History Tab */}
+              {activeTab === 'assignment' && (
+                <div className="space-y-4">
                   <h4 className="font-bold text-gray-900 mb-3">Assignment Logs</h4>
-                  <div className="max-h-60 overflow-y-auto border rounded-lg">
-                    <table className="w-full text-sm">
-                      <thead className="bg-gray-50 sticky top-0">
-                        <tr>
-                          <th className="px-3 py-2 text-left font-semibold text-gray-600">Assigned To</th>
-                          <th className="px-3 py-2 text-left font-semibold text-gray-600">Period</th>
-                          <th className="px-3 py-2 text-left font-semibold text-gray-600">Working Hours</th>
-                          <th className="px-3 py-2 text-left font-semibold text-gray-600">Rent Type</th>
-                          <th className="px-3 py-2 text-left font-semibold text-gray-600">Total Rent</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-100">
-                        {/* Sort by Date Descending */}
-                        {[...selectedMachine.assignmentHistory].reverse().map((log, index) => {
-                          let assignedName = 'Unknown';
-                          if (log.assignedModel === 'Project') {
-                            assignedName = projects.find(p => p._id === log.assignedTo)?.name || 'Project';
-                          } else {
-                            assignedName = contractors.find(c => c._id === log.assignedTo)?.name || 'Contractor';
-                          }
-
-                          // Helper to get paused duration for a specific assignment period
-                          const getPausedDurationMs = (assignmentStart, assignmentEnd) => {
-                            let totalPausedMs = 0;
-                            const startMs = new Date(assignmentStart).getTime();
-                            const endMs = assignmentEnd ? new Date(assignmentEnd).getTime() : Date.now();
-
-                            // 1. Sum up completed pauses that fall within this assignment
-                            if (selectedMachine.rentPausedHistory && selectedMachine.rentPausedHistory.length > 0) {
-                              selectedMachine.rentPausedHistory.forEach(pause => {
-                                const pauseStart = new Date(pause.pausedAt).getTime();
-                                const pauseEnd = pause.resumedAt ? new Date(pause.resumedAt).getTime() : endMs;
-
-                                // Check if this pause overlaps with the assignment
-                                if (pauseStart >= startMs && pauseStart < endMs) {
-                                  // Use the lesser of pauseEnd or assignmentEnd to avoid counting future time
-                                  const effectiveEnd = Math.min(pauseEnd, endMs);
-                                  totalPausedMs += (effectiveEnd - pauseStart);
-                                }
-                              });
-                            }
-
-                            // 2. Add current pause if active and within this assignment
-                            if (!assignmentEnd && selectedMachine.isRentPaused && selectedMachine.rentPausedAt) {
-                              // If currently paused, and this is the active assignment (no end date)
-                              // The loop above might handle it if rentPausedHistory isn't updated until resume?
-                              // Usually 'isRentPaused' means there's an open pause NOT in history yet, or it is?
-                              // siteController toggle puts it in history ONLY on resume.
-                              // So we MUST handle current open pause here.
-                              const currentPauseStart = new Date(selectedMachine.rentPausedAt).getTime();
-                              if (currentPauseStart >= startMs) {
-                                totalPausedMs += (Date.now() - currentPauseStart);
-                              }
-                            }
-
-                            return totalPausedMs;
-                          };
-
-                          // Helper to calculate duration
-                          const getDuration = () => {
-                            // If returned, prefer stored duration
-                            if (log.returnedAt && log.durationMinutes) {
-                              return `${(log.durationMinutes / 60).toFixed(2)} hrs`;
-                            }
-
-                            const start = new Date(log.assignedAt);
-                            const end = log.returnedAt ? new Date(log.returnedAt) : null; // Active if null
-
-                            const totalElapsedMs = (end || new Date()) - start;
-                            const pausedMs = getPausedDurationMs(start, end);
-                            const actualMs = Math.max(0, totalElapsedMs - pausedMs);
-
-                            const hours = actualMs / (1000 * 60 * 60);
-                            return `${hours.toFixed(2)} hrs`;
-                          };
-
-                          // Helper to calculate rent
-                          const getRent = () => {
-                            if (log.totalRent) return `₹${log.totalRent}`;
-                            if (!log.rate) return '-';
-
-                            const start = new Date(log.assignedAt);
-                            const end = null; // Active assignment
-
-                            const totalElapsedMs = new Date() - start;
-                            const pausedMs = getPausedDurationMs(start, end);
-                            const actualMs = Math.max(0, totalElapsedMs - pausedMs);
-
-                            let rent = 0;
-                            if (log.rentType === 'perHour') {
-                              // Per Hour calculation (Precise, matching Site Panel)
-                              const hours = actualMs / (1000 * 60 * 60);
-                              rent = hours * log.rate;
+                  {selectedMachine.assignmentHistory && selectedMachine.assignmentHistory.length > 0 ? (
+                    <div className="max-h-96 overflow-y-auto border rounded-lg">
+                      <table className="w-full text-sm">
+                        <thead className="bg-gray-50 sticky top-0">
+                          <tr>
+                            <th className="px-3 py-2 text-left font-semibold text-gray-600">Assigned To</th>
+                            <th className="px-3 py-2 text-left font-semibold text-gray-600">Period</th>
+                            <th className="px-3 py-2 text-left font-semibold text-gray-600">Working Hours</th>
+                            <th className="px-3 py-2 text-left font-semibold text-gray-600">Rent Type</th>
+                            <th className="px-3 py-2 text-left font-semibold text-gray-600">Total Rent</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                          {[...selectedMachine.assignmentHistory].reverse().map((log, index) => {
+                            let assignedName = 'Unknown';
+                            if (log.assignedModel === 'Project') {
+                              assignedName = projects.find(p => p._id === log.assignedTo)?.name || 'Project';
                             } else {
-                              // Per Day calculation
-                              const days = Math.ceil(actualMs / (1000 * 60 * 60 * 24));
-                              rent = days * log.rate;
+                              assignedName = contractors.find(c => c._id === log.assignedTo)?.name || 'Contractor';
                             }
-                            return `₹${Math.round(rent)} (Est.)`;
-                          };
 
-                          return (
+                            // ... (keeping helper functions logic would be verbose here, assuming they are accessible or inline)
+                            // Since helpers were inside map, I need to inline them or just copying the result logic if simple.
+                            // The logic was complex, so I will copy the map content structure but use the logic from previous view if possible
+                            // Waiting to see if I need to re-implement the helper functions. 
+                            // The helper functions `getDuration`, `getRent` depend on `log` and `selectedMachine`.
+                            // I will use a simplified render here for brevity in this replace block, 
+                            // BUT I should really preserve the logic. 
+                            // Re-implementing the map body correctly below.
+
+                            // Helper to get paused duration
+                            const getPausedDurationMs = (assignmentStart, assignmentEnd) => {
+                              let totalPausedMs = 0;
+                              const startMs = new Date(assignmentStart).getTime();
+                              const endMs = assignmentEnd ? new Date(assignmentEnd).getTime() : Date.now();
+                              if (selectedMachine.rentPausedHistory && selectedMachine.rentPausedHistory.length > 0) {
+                                selectedMachine.rentPausedHistory.forEach(pause => {
+                                  const pauseStart = new Date(pause.pausedAt).getTime();
+                                  const pauseEnd = pause.resumedAt ? new Date(pause.resumedAt).getTime() : endMs;
+                                  if (pauseStart >= startMs && pauseStart < endMs) {
+                                    const effectiveEnd = Math.min(pauseEnd, endMs);
+                                    totalPausedMs += (effectiveEnd - pauseStart);
+                                  }
+                                });
+                              }
+                              if (!assignmentEnd && selectedMachine.isRentPaused && selectedMachine.rentPausedAt) {
+                                const currentPauseStart = new Date(selectedMachine.rentPausedAt).getTime();
+                                if (currentPauseStart >= startMs) {
+                                  totalPausedMs += (Date.now() - currentPauseStart);
+                                }
+                              }
+                              return totalPausedMs;
+                            };
+
+                            const getDuration = () => {
+                              if (log.returnedAt && log.durationMinutes) return `${(log.durationMinutes / 60).toFixed(2)} hrs`;
+                              const start = new Date(log.assignedAt);
+                              const end = log.returnedAt ? new Date(log.returnedAt) : null;
+                              const totalElapsedMs = (end || new Date()) - start;
+                              const pausedMs = getPausedDurationMs(start, end);
+                              const actualMs = Math.max(0, totalElapsedMs - pausedMs);
+                              const hours = actualMs / (1000 * 60 * 60);
+                              return `${hours.toFixed(2)} hrs`;
+                            };
+
+                            const getRent = () => {
+                              if (log.totalRent) return `₹${log.totalRent}`;
+                              if (!log.rate) return '-';
+                              const start = new Date(log.assignedAt);
+                              const end = null;
+                              const totalElapsedMs = new Date() - start;
+                              const pausedMs = getPausedDurationMs(start, end);
+                              const actualMs = Math.max(0, totalElapsedMs - pausedMs);
+                              let rent = 0;
+                              if (log.rentType === 'perHour') {
+                                const hours = actualMs / (1000 * 60 * 60);
+                                rent = hours * log.rate;
+                              } else {
+                                const days = Math.ceil(actualMs / (1000 * 60 * 60 * 24));
+                                rent = days * log.rate;
+                              }
+                              return `₹${Math.round(rent)} (Est.)`;
+                            };
+
+                            return (
+                              <tr key={index} className="hover:bg-gray-50">
+                                <td className="px-3 py-2">
+                                  <div className="font-medium text-gray-900">{assignedName}</div>
+                                  <div className="text-xs text-gray-500">{log.assignedModel}</div>
+                                </td>
+                                <td className="px-3 py-2">
+                                  <div><span className="text-xs text-green-600">In:</span> {new Date(log.assignedAt).toLocaleDateString()}</div>
+                                  {log.returnedAt ? (
+                                    <div><span className="text-xs text-red-600">Ret:</span> {new Date(log.returnedAt).toLocaleDateString()}</div>
+                                  ) : (
+                                    <span className="text-xs font-semibold text-green-600 bg-green-100 px-1.5 rounded">Active</span>
+                                  )}
+                                </td>
+                                <td className="px-3 py-2 text-sm text-gray-700">{getDuration()}</td>
+                                <td className="px-3 py-2">{log.rate ? `₹${log.rate}/${log.rentType === 'perHour' ? 'hr' : 'day'}` : '-'}</td>
+                                <td className="px-3 py-2 font-bold text-gray-700">{getRent()}</td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <p className="text-gray-500 text-center py-4">No assignment history found.</p>
+                  )}
+                </div>
+              )}
+
+              {/* Maintenance History Tab */}
+              {activeTab === 'maintenance' && (
+                <div className="space-y-4">
+                  <h4 className="font-bold text-gray-900 mb-3">Maintenance Logs</h4>
+                  {selectedMachine.maintenanceHistory && selectedMachine.maintenanceHistory.length > 0 ? (
+                    <div className="max-h-96 overflow-y-auto border rounded-lg">
+                      <table className="w-full text-sm">
+                        <thead className="bg-gray-50 sticky top-0">
+                          <tr>
+                            <th className="px-3 py-2 text-left font-semibold text-gray-600">Entered</th>
+                            <th className="px-3 py-2 text-left font-semibold text-gray-600">Completed</th>
+                            <th className="px-3 py-2 text-left font-semibold text-gray-600">Cost</th>
+                            <th className="px-3 py-2 text-left font-semibold text-gray-600">Description</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                          {[...selectedMachine.maintenanceHistory].reverse().map((log, index) => (
                             <tr key={index} className="hover:bg-gray-50">
-                              <td className="px-3 py-2">
-                                <div className="font-medium text-gray-900">{assignedName}</div>
-                                <div className="text-xs text-gray-500">{log.assignedModel}</div>
+                              <td className="px-3 py-2 text-gray-900">
+                                {new Date(log.enteredAt).toLocaleDateString()}
+                                <div className="text-xs text-gray-500">{new Date(log.enteredAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
                               </td>
-                              <td className="px-3 py-2">
-                                <div><span className="text-xs text-green-600">In:</span> {new Date(log.assignedAt).toLocaleDateString()}</div>
-                                {log.returnedAt ? (
-                                  <div><span className="text-xs text-red-600">Ret:</span> {new Date(log.returnedAt).toLocaleDateString()}</div>
+                              <td className="px-3 py-2 text-gray-900">
+                                {log.completedAt ? (
+                                  <>
+                                    {new Date(log.completedAt).toLocaleDateString()}
+                                    <div className="text-xs text-gray-500">{new Date(log.completedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+                                  </>
                                 ) : (
-                                  <span className="text-xs font-semibold text-green-600 bg-green-100 px-1.5 rounded">Active</span>
+                                  <span className="text-xs font-semibold text-orange-600 bg-orange-100 px-1.5 rounded">Ongoing</span>
                                 )}
                               </td>
-                              <td className="px-3 py-2 text-sm text-gray-700">
-                                {getDuration()}
+                              <td className="px-3 py-2 font-bold text-gray-900">
+                                {log.cost ? `₹${log.cost}` : '-'}
                               </td>
-                              <td className="px-3 py-2">
-                                {log.rate ? (
-                                  <>
-                                    <div>₹{log.rate}/{log.rentType === 'perHour' ? 'hr' : 'day'}</div>
-                                  </>
-                                ) : '-'}
-                              </td>
-                              <td className="px-3 py-2 font-bold text-gray-700">
-                                {getRent()}
+                              <td className="px-3 py-2 text-gray-600 max-w-xs truncate" title={log.description}>
+                                {log.description || '-'}
                               </td>
                             </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <p className="text-gray-500 text-center py-4">No maintenance history found.</p>
+                  )}
                 </div>
               )}
             </div>
@@ -1290,6 +1396,41 @@ const MachineCategory = () => {
           </div>
         </div>
       )}
+
+      {/* Unassign Machine Modal */}
+      {showUnassignModal && unassignTargetMachine && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg p-6 max-w-sm w-full">
+            <h3 className="text-xl font-bold text-gray-900 mb-4">Unassign Machine</h3>
+            <p className="text-gray-600 mb-6">
+              Where should <strong>{unassignTargetMachine.name}</strong> be moved?
+            </p>
+            <div className="flex flex-col gap-3">
+              <button
+                onClick={() => confirmUnassign('available')}
+                className="w-full px-4 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 font-medium flex items-center justify-center gap-2"
+              >
+                Available
+                <span className="text-xs opacity-75">(Ready for use)</span>
+              </button>
+              <button
+                onClick={() => confirmUnassign('maintenance')}
+                className="w-full px-4 py-3 bg-orange-500 text-white rounded-lg hover:bg-orange-600 font-medium flex items-center justify-center gap-2"
+              >
+                Maintenance
+                <span className="text-xs opacity-75">(Needs repair)</span>
+              </button>
+              <button
+                onClick={() => setShowUnassignModal(false)}
+                className="w-full px-4 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-medium mt-2"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };

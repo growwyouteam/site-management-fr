@@ -207,10 +207,18 @@ const Labour = () => {
             </div>
 
             <div className="p-6">
-              <div className="flex gap-4 mb-6 bg-blue-50 p-4 rounded-lg">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 bg-blue-50 p-4 rounded-lg">
                 <div>
-                  <p className="text-sm text-gray-500">Total Paid (Lifetime)</p>
+                  <p className="text-sm text-gray-500">Total Paid</p>
                   <p className="text-2xl font-bold text-green-600">₹{historyData.totalPaid}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">Total Advances</p>
+                  <p className="text-2xl font-bold text-orange-600">₹{historyData.totalAdvances || 0}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">Total Deductions</p>
+                  <p className="text-2xl font-bold text-purple-600">₹{historyData.totalDeductions || 0}</p>
                 </div>
                 <div>
                   <p className="text-sm text-gray-500">Current Pending</p>
@@ -218,25 +226,30 @@ const Labour = () => {
                 </div>
               </div>
 
-              <div className="mb-8">
-                <h3 className="font-bold text-gray-700 mb-3">Transaction History</h3>
-                {historyData.payments.length > 0 ? (
+              {/* Wage Payments Section */}
+              <div className="mb-6">
+                <h3 className="font-bold text-gray-700 mb-3">💰 Wage Payments</h3>
+                {historyData.payments && historyData.payments.length > 0 ? (
                   <div className="overflow-x-auto border rounded-lg max-h-60 overflow-y-auto">
                     <table className="min-w-full text-sm">
                       <thead className="bg-gray-50 sticky top-0">
                         <tr>
                           <th className="px-4 py-2 text-left font-semibold text-gray-600">Date</th>
                           <th className="px-4 py-2 text-left font-semibold text-gray-600">Amount</th>
-                          <th className="px-4 py-2 text-left font-semibold text-gray-600">Payment Mode</th>
+                          <th className="px-4 py-2 text-left font-semibold text-gray-600">Deduction</th>
+                          <th className="px-4 py-2 text-left font-semibold text-gray-600">Final</th>
+                          <th className="px-4 py-2 text-left font-semibold text-gray-600">Mode</th>
                           <th className="px-4 py-2 text-left font-semibold text-gray-600">Paid By</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-100">
                         {historyData.payments.map((p) => (
                           <tr key={p._id}>
-                            <td className="px-4 py-2">{new Date(p.date || p.createdAt).toLocaleDateString()}</td>
+                            <td className="px-4 py-2">{new Date(p.createdAt).toLocaleDateString()}</td>
                             <td className="px-4 py-2 font-medium text-green-600">₹{p.amount}</td>
-                            <td className="px-4 py-2 capitalize">{p.paymentMode}</td>
+                            <td className="px-4 py-2 text-purple-600">{p.deduction > 0 ? `-₹${p.deduction}` : '-'}</td>
+                            <td className="px-4 py-2 font-bold text-blue-600">₹{p.finalAmount}</td>
+                            <td className="px-4 py-2 capitalize text-xs">{p.paymentMode}</td>
                             <td className="px-4 py-2">{p.userId?.name || 'Unknown'}</td>
                           </tr>
                         ))}
@@ -244,7 +257,40 @@ const Labour = () => {
                     </table>
                   </div>
                 ) : (
-                  <p className="text-gray-500 italic">No payment history found.</p>
+                  <p className="text-gray-500 italic">No wage payments found.</p>
+                )}
+              </div>
+
+              {/* Advances Section */}
+              <div className="mb-8">
+                <h3 className="font-bold text-gray-700 mb-3">🔶 Advance Payments</h3>
+                {historyData.advances && historyData.advances.length > 0 ? (
+                  <div className="overflow-x-auto border rounded-lg max-h-60 overflow-y-auto bg-orange-50">
+                    <table className="min-w-full text-sm">
+                      <thead className="bg-orange-100 sticky top-0">
+                        <tr>
+                          <th className="px-4 py-2 text-left font-semibold text-gray-600">Date</th>
+                          <th className="px-4 py-2 text-left font-semibold text-gray-600">Advance Amount</th>
+                          <th className="px-4 py-2 text-left font-semibold text-gray-600">Mode</th>
+                          <th className="px-4 py-2 text-left font-semibold text-gray-600">Paid By</th>
+                          <th className="px-4 py-2 text-left font-semibold text-gray-600">Remarks</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-orange-200">
+                        {historyData.advances.map((p) => (
+                          <tr key={p._id} className="bg-white">
+                            <td className="px-4 py-2">{new Date(p.createdAt).toLocaleDateString()}</td>
+                            <td className="px-4 py-2 font-bold text-orange-600">₹{p.advance}</td>
+                            <td className="px-4 py-2 capitalize text-xs">{p.paymentMode}</td>
+                            <td className="px-4 py-2">{p.userId?.name || 'Unknown'}</td>
+                            <td className="px-4 py-2 text-xs text-gray-600">{p.remarks || '-'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <p className="text-gray-500 italic">No advances given.</p>
                 )}
               </div>
 
@@ -267,8 +313,8 @@ const Labour = () => {
                             <td className="px-4 py-2">{a.projectId?.name || 'Unknown'}</td>
                             <td className="px-4 py-2 capitalize">
                               <span className={`px-2 py-0.5 rounded text-xs font-bold ${a.status === 'present' ? 'bg-green-100 text-green-800' :
-                                  a.status === 'half' ? 'bg-yellow-100 text-yellow-800' :
-                                    'bg-red-100 text-red-800'
+                                a.status === 'half' ? 'bg-yellow-100 text-yellow-800' :
+                                  'bg-red-100 text-red-800'
                                 }`}>
                                 {a.status}
                               </span>

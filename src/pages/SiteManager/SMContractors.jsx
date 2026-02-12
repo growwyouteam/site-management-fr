@@ -133,6 +133,7 @@ const SMContractors = () => {
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Mobile</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Address</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Labour Count</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                             </tr>
@@ -145,6 +146,11 @@ const SMContractors = () => {
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-gray-500">{contractor.mobile}</td>
                                     <td className="px-6 py-4 text-gray-500 max-w-xs truncate">{contractor.address}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap">
+                                        <span className="inline-flex items-center gap-1 px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
+                                            👷 {contractor.labourCount || 0} Labour{contractor.labourCount !== 1 ? 's' : ''}
+                                        </span>
+                                    </td>
                                     <td className="px-6 py-4 whitespace-nowrap">
                                         <span className={`px-2 py-1 text-xs rounded-full ${contractor.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
                                             {contractor.status}

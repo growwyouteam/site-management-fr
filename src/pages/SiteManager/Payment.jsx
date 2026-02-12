@@ -394,7 +394,17 @@ const Payment = () => {
                 <label className="block text-sm font-medium text-gray-700 mb-1">Labour</label>
                 <select
                   value={labourPaymentData.labourId}
-                  onChange={e => setLabourPaymentData({ ...labourPaymentData, labourId: e.target.value })}
+                  onChange={e => {
+                    const selectedId = e.target.value;
+                    const selectedLabour = labours.find(l => l._id === selectedId);
+                    const pending = selectedLabour?.pendingPayout || 0;
+
+                    setLabourPaymentData(prev => ({
+                      ...prev,
+                      labourId: selectedId,
+                      amount: prev.type === 'wage' ? pending : prev.amount
+                    }));
+                  }}
                   required
                   className="w-full border rounded p-2"
                 >
@@ -408,7 +418,17 @@ const Payment = () => {
                 <label className="block text-sm font-medium text-gray-700 mb-1">Payment Type</label>
                 <select
                   value={labourPaymentData.type}
-                  onChange={e => setLabourPaymentData({ ...labourPaymentData, type: e.target.value })}
+                  onChange={e => {
+                    const newType = e.target.value;
+                    let newAmount = labourPaymentData.amount;
+
+                    if (newType === 'wage') {
+                      const selectedLabour = labours.find(l => l._id === labourPaymentData.labourId);
+                      newAmount = selectedLabour?.pendingPayout || 0;
+                    }
+
+                    setLabourPaymentData(prev => ({ ...prev, type: newType, amount: newAmount }));
+                  }}
                   className="w-full border rounded p-2"
                 >
                   <option value="wage">Wage Payment</option>
@@ -441,7 +461,19 @@ const Payment = () => {
                 <label className="block text-sm font-medium text-gray-700 mb-1">Contractor</label>
                 <select
                   value={contractorPaymentData.contractorId}
-                  onChange={e => setContractorPaymentData({ ...contractorPaymentData, contractorId: e.target.value })}
+                  onChange={e => {
+                    const selectedId = e.target.value;
+                    const selectedContractor = contractors.find(c => c._id === selectedId);
+                    // Check what field contractors use for pending. Previously saw 'pendingAmount' in schema but maybe check consistency.
+                    // Assuming 'pendingAmount' based on Schema.
+                    const pending = selectedContractor?.pendingAmount || 0;
+
+                    setContractorPaymentData(prev => ({
+                      ...prev,
+                      contractorId: selectedId,
+                      amount: prev.type === 'wage' ? pending : prev.amount
+                    }));
+                  }}
                   required
                   className="w-full border rounded p-2"
                 >
@@ -455,7 +487,17 @@ const Payment = () => {
                 <label className="block text-sm font-medium text-gray-700 mb-1">Payment Type</label>
                 <select
                   value={contractorPaymentData.type}
-                  onChange={e => setContractorPaymentData({ ...contractorPaymentData, type: e.target.value })}
+                  onChange={e => {
+                    const newType = e.target.value;
+                    let newAmount = contractorPaymentData.amount;
+
+                    if (newType === 'wage') {
+                      const selectedContractor = contractors.find(c => c._id === contractorPaymentData.contractorId);
+                      newAmount = selectedContractor?.pendingAmount || 0;
+                    }
+
+                    setContractorPaymentData(prev => ({ ...prev, type: newType, amount: newAmount }));
+                  }}
                   className="w-full border rounded p-2"
                 >
                   <option value="wage">Payment</option>
@@ -481,7 +523,17 @@ const Payment = () => {
                 <label className="block text-sm font-medium text-gray-700 mb-1">Vendor</label>
                 <select
                   value={vendorPaymentData.vendorId}
-                  onChange={e => setVendorPaymentData({ ...vendorPaymentData, vendorId: e.target.value })}
+                  onChange={e => {
+                    const selectedId = e.target.value;
+                    const selectedVendor = vendors.find(v => v._id === selectedId);
+                    const pending = selectedVendor?.pendingAmount || 0;
+
+                    setVendorPaymentData(prev => ({
+                      ...prev,
+                      vendorId: selectedId,
+                      amount: prev.type === 'wage' ? pending : prev.amount
+                    }));
+                  }}
                   required
                   className="w-full border rounded p-2"
                 >
@@ -495,7 +547,17 @@ const Payment = () => {
                 <label className="block text-sm font-medium text-gray-700 mb-1">Payment Type</label>
                 <select
                   value={vendorPaymentData.type}
-                  onChange={e => setVendorPaymentData({ ...vendorPaymentData, type: e.target.value })}
+                  onChange={e => {
+                    const newType = e.target.value;
+                    let newAmount = vendorPaymentData.amount;
+
+                    if (newType === 'wage') {
+                      const selectedVendor = vendors.find(v => v._id === vendorPaymentData.vendorId);
+                      newAmount = selectedVendor?.pendingAmount || 0;
+                    }
+
+                    setVendorPaymentData(prev => ({ ...prev, type: newType, amount: newAmount }));
+                  }}
                   className="w-full border rounded p-2"
                 >
                   <option value="wage">Payment</option>
